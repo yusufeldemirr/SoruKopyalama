@@ -30,7 +30,13 @@ namespace SoruKopyalama.Services
         {
             s.Kaynak = null;
             s.Adaylar = new List<DbSoru>();
-            s.Anahtar = KisaKodParser.Coz(s.KisaKod);
+            // Anahtarı önce kısa koddan, olmazsa kod açılımından çıkar. İkisi de varsa birbirini doğrulamalı.
+            var koddan = KisaKodParser.Coz(s.KisaKod);
+            var acilimdan = KisaKodParser.AcilimdanCoz(s.KodAcilimi);
+            s.Anahtar = koddan ?? acilimdan;
+            string anahtarKaynagi = koddan != null ? "koddan" : "kod açılımından";
+            bool celiski = koddan != null && acilimdan != null && koddan != acilimdan;
+
             s.Brans = s.Anahtar != null
                 ? SoruIndeksi.TestBransi(s.Anahtar.Test)
                 : ShortCodeDecoder.GetBranş(s.KisaKod, s.BolumKodu);
@@ -54,7 +60,7 @@ namespace SoruKopyalama.Services
                 {
                     s.Kaynak = adaylar[0];
                     s.Durum = EslesmeDurumu.Kesin;
-                    s.Aciklama = "Birebir eşleşti";
+                    s.Aciklama = $"Birebir eşleşti ({anahtarKaynagi})";
                 }
                 else if (adaylar.Count > 1)
                 {
@@ -103,6 +109,12 @@ namespace SoruKopyalama.Services
             {
                 s.Durum = EslesmeDurumu.CevapFarkli;
                 s.Aciklama = $"Bulundu ama cevap farklı! İş emri: {s.Cevap}, veritabanı: {s.Kaynak.CevapAnahtari}";
+            }
+
+            if (celiski && s.Durum == EslesmeDurumu.Kesin)
+            {
+                s.Durum = EslesmeDurumu.KodAcilimCelisiyor;
+                s.Aciklama = $"Kısa kod ({koddan}) ile kod açılımı ({acilimdan}) farklı soruyu gösteriyor - kontrol edin";
             }
 
             if (s.Kaynak != null && string.IsNullOrEmpty(s.Kaynak.SourceId))

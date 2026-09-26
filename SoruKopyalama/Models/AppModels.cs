@@ -55,6 +55,9 @@ namespace SoruKopyalama.Models
         public string SolutionId { get; set; } = "";
         public string SourceId { get; set; } = "";
         public string CevapAnahtari { get; set; } = "";
+        public string Zorluk { get; set; } = "";
+        public string KazanimId { get; set; } = "";
+        public string Kazanim { get; set; } = "";
         public SoruAnahtari? Anahtar { get; set; }
 
         /// <summary>Kaynak yolunun son 3 klasörü (ekranda göstermek için).</summary>
@@ -75,6 +78,7 @@ namespace SoruKopyalama.Models
         ElleGirildi,    // Ön kontrol ekranında kullanıcı Soru ID yazdı
         CevapFarkli,    // Bulundu ama iş emrindeki cevap veritabanındakinden farklı
         Coklu,          // Aynı anahtara birden fazla soru denk geliyor
+        KodAcilimCelisiyor, // Kısa kod ile kod açılımı farklı soruları gösteriyor
         Tahmini,        // Kod ayrıştırılamadı, eski kelime puanlama motoru tahmin etti
         Bulunamadi,
         HedefNoBos      // İş emrinde hedef soru numarası yok

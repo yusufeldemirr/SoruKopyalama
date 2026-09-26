@@ -28,7 +28,7 @@ namespace SoruKopyalama.Forms
 
         private const string ColSec = "Sec", ColSira = "Sira", ColKod = "Kod", ColBrans = "Brans", ColHedef = "Hedef",
                              ColCevap = "Cevap", ColDurum = "Durum", ColSoruId = "SoruId", ColKaynakId = "KaynakId",
-                             ColDbCevap = "DbCevap", ColYol = "Yol", ColAciklama = "Aciklama";
+                             ColDbCevap = "DbCevap", ColZorluk = "Zorluk", ColKazanim = "Kazanim", ColYol = "Yol", ColAciklama = "Aciklama";
 
         public OnizlemeForm(List<IsEmriSatiri> satirlar, string panel, DatabaseManager db, Eslestirici eslestirici)
         {
@@ -117,8 +117,10 @@ namespace SoruKopyalama.Forms
             Kolon(ColSoruId, "Soru ID ✏️", 90, duzenlenebilir: true);
             Kolon(ColKaynakId, "Kaynak Klasör", 90);
             Kolon(ColDbCevap, "DB Cevap", 65);
+            Kolon(ColZorluk, "Zorluk", 55);
             Kolon(ColYol, "Bulunan Kaynak", 420);
             Kolon(ColAciklama, "Açıklama", 400);
+            Kolon(ColKazanim, "Kazanım", 300);
 
             _grid.CurrentCellDirtyStateChanged += (s, e) =>
             {
@@ -168,13 +170,15 @@ namespace SoruKopyalama.Forms
             r.Cells[ColKaynakId].Value = s.Kaynak?.SourceId ?? "";
             r.Cells[ColDbCevap].Value = s.Kaynak?.CevapAnahtari ?? "";
             r.Cells[ColYol].Value = s.Kaynak?.KisaYol ?? "";
+            r.Cells[ColZorluk].Value = s.Kaynak?.Zorluk ?? "";
+            r.Cells[ColKazanim].Value = s.Kaynak == null || s.Kaynak.KazanimId == "" ? "" : $"[{s.Kaynak.KazanimId}] {s.Kaynak.Kazanim}";
             r.Cells[ColAciklama].Value = s.Aciklama;
 
             Color renk = s.Durum switch
             {
                 EslesmeDurumu.Kesin => Color.FromArgb(220, 245, 225),
                 EslesmeDurumu.Duzeltme or EslesmeDurumu.ElleGirildi => Color.FromArgb(210, 232, 250),
-                EslesmeDurumu.CevapFarkli or EslesmeDurumu.Coklu or EslesmeDurumu.Tahmini or EslesmeDurumu.HedefNoBos => Color.FromArgb(255, 238, 200),
+                EslesmeDurumu.CevapFarkli or EslesmeDurumu.Coklu or EslesmeDurumu.KodAcilimCelisiyor or EslesmeDurumu.Tahmini or EslesmeDurumu.HedefNoBos => Color.FromArgb(255, 238, 200),
                 _ => Color.FromArgb(252, 215, 215)
             };
             foreach (DataGridViewCell c in r.Cells)
@@ -193,6 +197,7 @@ namespace SoruKopyalama.Forms
             EslesmeDurumu.ElleGirildi => "✏️ Elle girildi",
             EslesmeDurumu.CevapFarkli => "⚠️ Cevap farklı",
             EslesmeDurumu.Coklu => "⚠️ Birden fazla",
+            EslesmeDurumu.KodAcilimCelisiyor => "⚠️ Kod/açılım farklı",
             EslesmeDurumu.Tahmini => "⚠️ Tahmini",
             EslesmeDurumu.HedefNoBos => "⏭️ Hedef no boş",
             _ => "❌ Bulunamadı"
@@ -286,7 +291,7 @@ namespace SoruKopyalama.Forms
         {
             int secili = _satirlar.Count(x => x.Secili);
             int kesin = _satirlar.Count(x => x.Durum is EslesmeDurumu.Kesin or EslesmeDurumu.Duzeltme or EslesmeDurumu.ElleGirildi);
-            int supheli = _satirlar.Count(x => x.Durum is EslesmeDurumu.CevapFarkli or EslesmeDurumu.Coklu or EslesmeDurumu.Tahmini or EslesmeDurumu.HedefNoBos);
+            int supheli = _satirlar.Count(x => x.Durum is EslesmeDurumu.CevapFarkli or EslesmeDurumu.Coklu or EslesmeDurumu.KodAcilimCelisiyor or EslesmeDurumu.Tahmini or EslesmeDurumu.HedefNoBos);
             int yok = _satirlar.Count(x => x.Durum == EslesmeDurumu.Bulunamadi);
 
             _lblOzet.Text = $"Toplam {_satirlar.Count}  |  ✅ Kesin: {kesin}  |  ⚠️ Kontrol gereken: {supheli}  |  ❌ Bulunamayan: {yok}  |  Kopyalanacak: {secili}";

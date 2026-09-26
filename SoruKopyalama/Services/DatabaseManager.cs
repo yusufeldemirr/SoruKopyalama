@@ -262,6 +262,9 @@ namespace SoruKopyalama.Services
                                                 string soruNo = worksheet.Cells[row, 2].Text.Trim();
                                                 string solutionId = worksheet.Cells[row, 3].Text.Trim();
                                                 string cevapAnahtari = worksheet.Cells[row, 4].Text.Trim();
+                                                string zorluk = worksheet.Cells[row, 6].Text.Trim();
+                                                string kazanim = worksheet.Cells[row, 8].Text.Trim();
+                                                string kazanimId = worksheet.Cells[row, 9].Text.Trim();
 
                                                 if (kaynakAdi.Equals("Kaynak Adı", StringComparison.OrdinalIgnoreCase) ||
                                                     solutionId.Equals("Solution ID", StringComparison.OrdinalIgnoreCase))
@@ -297,7 +300,7 @@ namespace SoruKopyalama.Services
 
                                                     PanelVeritabanlari[detectedPanel][anahtar] = refObj;
                                                     SistemVeritabani[anahtar] = refObj;
-                                                    _tumSorular.Add(new DbSoru { Panel = detectedPanel, KaynakAdi = kaynakAdi, SoruNoMetin = soruNo, SolutionId = solutionId, SourceId = sourceId, CevapAnahtari = cevapAnahtari });
+                                                    _tumSorular.Add(new DbSoru { Panel = detectedPanel, KaynakAdi = kaynakAdi, SoruNoMetin = soruNo, SolutionId = solutionId, SourceId = sourceId, CevapAnahtari = cevapAnahtari, Zorluk = zorluk, Kazanim = kazanim, KazanimId = kazanimId });
                                                 }
                                             }
                                             islenenDosyaSayisi++;
@@ -325,6 +328,9 @@ namespace SoruKopyalama.Services
                                     string soruNo = table.Columns.Count > 1 ? table.Rows[row][1]?.ToString()?.Trim() ?? "" : "";
                                     string solutionId = table.Columns.Count > 2 ? table.Rows[row][2]?.ToString()?.Trim() ?? "" : "";
                                     string cevapAnahtari = table.Columns.Count > 3 ? table.Rows[row][3]?.ToString()?.Trim() ?? "" : "";
+                                    string zorluk = table.Columns.Count > 5 ? table.Rows[row][5]?.ToString()?.Trim() ?? "" : "";
+                                    string kazanim = table.Columns.Count > 7 ? table.Rows[row][7]?.ToString()?.Trim() ?? "" : "";
+                                    string kazanimId = table.Columns.Count > 8 ? table.Rows[row][8]?.ToString()?.Trim() ?? "" : "";
 
                                     if (kaynakAdi.Equals("Kaynak Adı", StringComparison.OrdinalIgnoreCase) ||
                                         solutionId.Equals("Solution ID", StringComparison.OrdinalIgnoreCase))
@@ -360,7 +366,7 @@ namespace SoruKopyalama.Services
 
                                         PanelVeritabanlari[detectedPanel][anahtar] = refObj;
                                         SistemVeritabani[anahtar] = refObj;
-                                        _tumSorular.Add(new DbSoru { Panel = detectedPanel, KaynakAdi = kaynakAdi, SoruNoMetin = soruNo, SolutionId = solutionId, SourceId = sourceId, CevapAnahtari = cevapAnahtari });
+                                        _tumSorular.Add(new DbSoru { Panel = detectedPanel, KaynakAdi = kaynakAdi, SoruNoMetin = soruNo, SolutionId = solutionId, SourceId = sourceId, CevapAnahtari = cevapAnahtari, Zorluk = zorluk, Kazanim = kazanim, KazanimId = kazanimId });
                                     }
                                 }
                                 islenenDosyaSayisi++;

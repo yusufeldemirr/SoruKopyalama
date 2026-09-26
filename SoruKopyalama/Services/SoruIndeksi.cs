@@ -115,7 +115,9 @@ namespace SoruKopyalama.Services
             var (yayin, seri) = YayinVeSeri(ikisi);
             if (yayin == "") return null;
 
+            // "...Deneme Sınavı1" veya "...Deneme Sınavı1 (Başarı Serisi)"
             var dMatch = Regex.Match(grup, @"(\d+)\s*$");
+            if (!dMatch.Success) dMatch = Regex.Match(grup, @"(?:sınavı|deneme)\s*(\d+)");
             if (!dMatch.Success) dMatch = Regex.Match(kitapcik, @"(?:sınavı|deneme)\s*(\d+)");
             if (!dMatch.Success) return null;
 
@@ -132,8 +134,14 @@ namespace SoruKopyalama.Services
             return new SoruAnahtari(yayin, seri, sinav, int.Parse(dMatch.Groups[1].Value), testNo, int.Parse(nMatch.Groups[1].Value));
         }
 
-        private static (string Yayin, string Seri) YayinVeSeri(string metin)
+        /// <summary>Normalize edilmiş (küçük harf) metinden yayın ve seriyi bulur. Kod açılımı için de kullanılır.</summary>
+        public static (string Yayin, string Seri) YayinVeSeri(string metin)
         {
+            if (metin.Contains("esen"))
+            {
+                if (metin.Contains("başarı")) return ("Esen", "Başarı");
+                return ("", "");
+            }
             if (metin.Contains("finale doğru"))
             {
                 if (metin.Contains("okul")) return ("Final", "Okul");
@@ -146,7 +154,7 @@ namespace SoruKopyalama.Services
         }
 
         /// <summary>TYT: 1 Türkçe, 2 Sosyal, 3 Temel Mat, 4 Fen. AYT: 1 Edebiyat-Sosyal1, 2 Sosyal2, 3 Mat, 4 Fen.</summary>
-        private static int TestNo(string test)
+        public static int TestNo(string test)
         {
             // "Türk Dili ve Edebiyatı Sosyal Bilimler1" hem edebiyat hem sosyal içerir, önce edebiyata bak
             if (test.Contains("edebiyat") || test.Contains("türkçe")) return 1;

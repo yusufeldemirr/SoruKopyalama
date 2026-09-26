@@ -463,7 +463,7 @@ namespace SoruKopyalama
                 // Soru No ve Cevap Anahtarı Güncelleme
                 if (kopyalandi && !string.IsNullOrEmpty(yeniSoruId))
                 {
-                    string updatePayload = $"{{\"id\":\"{yeniSoruId}\",\"subjects\":[],\"source\":\"{hedefTargetId}\",\"answer\":\"{cevapAnahtari}\",\"difficulty\":\"4\",\"order_number\":\"{hedefSoruNo}\"}}";
+                    string updatePayload = GuncellemeVerisi(yeniSoruId, hedefTargetId, cevapAnahtari, hedefSoruNo, kaynak);
                     string updateUrl = $"https://{hedefPanel.Domain}/controller/action_questions.php";
 
                     var updateData = new List<KeyValuePair<string, string>>
@@ -525,6 +525,25 @@ namespace SoruKopyalama
             LogYaz($"   Kusursuz Kopyalanan : {basariliSayisi} Soru", Color.LimeGreen);
             LogYaz($"   Hatalı / Bulunamayan: {hataliSayisi} Soru", Color.LightCoral);
             LogYaz("=================================================", Color.DodgerBlue);
+        }
+
+        /// <summary>
+        /// update_question için JSON. Zorluk kaynak sorudan (veritabanı Excel'i) alınır; yoksa eskisi gibi 4.
+        /// TODO: kazanım (subjects) formatı panelden doğrulanınca kaynak.KazanimId buraya eklenecek.
+        /// </summary>
+        private static string GuncellemeVerisi(string yeniSoruId, string hedefKlasorId, string cevap, string hedefSoruNo, DbSoru kaynak)
+        {
+            string zorluk = Regex.IsMatch(kaynak.Zorluk, @"^[1-5]$") ? kaynak.Zorluk : "4";
+            var veri = new Dictionary<string, object>
+            {
+                ["id"] = yeniSoruId,
+                ["subjects"] = Array.Empty<string>(),
+                ["source"] = hedefKlasorId,
+                ["answer"] = cevap,
+                ["difficulty"] = zorluk,
+                ["order_number"] = hedefSoruNo
+            };
+            return JsonSerializer.Serialize(veri);
         }
 
         private string ParseNewQuestionId(string responseText)
