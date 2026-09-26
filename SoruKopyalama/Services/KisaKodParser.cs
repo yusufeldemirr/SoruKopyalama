@@ -28,6 +28,16 @@ namespace SoruKopyalama.Services
             @"^(?<sezon>\d{2})?EBD(?<deneme>\d+)(?<sinav>[AT])T(?<test>[1-4])S(?<soru>\d+)$",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
+        // Limit Aktör / Dublör. Örnek: 56LAAYTD6T1S1 = Limit Aktör AYT Deneme 6, Test 1, Soru 1 (LD = Dublör)
+        private static readonly Regex LimitAktorDublor = new(
+            @"^(?<sezon>\d{2})?L(?<seri>[AD])(?<sinav>AYT|TYT)D(?<deneme>\d+)T(?<test>[1-4])S(?<soru>\d+)$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        // Limit Eğitim Kurumları. Örnek: 56LEKAD8T1S2 = LEK AYT Deneme 8, Test 1, Soru 2 (LEKT... = TYT)
+        private static readonly Regex LimitLek = new(
+            @"^(?<sezon>\d{2})?LEK(?<sinav>[AT])D(?<deneme>\d+)T(?<test>[1-4])S(?<soru>\d+)$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
         public static SoruAnahtari? Coz(string kisaKod)
         {
             string kod = (kisaKod ?? "").Trim().ToUpperInvariant();
@@ -51,6 +61,30 @@ namespace SoruKopyalama.Services
                 return new SoruAnahtari(
                     "Esen",
                     "Başarı",
+                    m.Groups["sinav"].Value == "A" ? "AYT" : "TYT",
+                    int.Parse(m.Groups["deneme"].Value),
+                    int.Parse(m.Groups["test"].Value),
+                    int.Parse(m.Groups["soru"].Value));
+            }
+
+            m = LimitAktorDublor.Match(kod);
+            if (m.Success)
+            {
+                return new SoruAnahtari(
+                    "Limit",
+                    m.Groups["seri"].Value == "A" ? "Aktör" : "Dublör",
+                    m.Groups["sinav"].Value.ToUpperInvariant(),
+                    int.Parse(m.Groups["deneme"].Value),
+                    int.Parse(m.Groups["test"].Value),
+                    int.Parse(m.Groups["soru"].Value));
+            }
+
+            m = LimitLek.Match(kod);
+            if (m.Success)
+            {
+                return new SoruAnahtari(
+                    "Limit",
+                    "LEK",
                     m.Groups["sinav"].Value == "A" ? "AYT" : "TYT",
                     int.Parse(m.Groups["deneme"].Value),
                     int.Parse(m.Groups["test"].Value),

@@ -35,11 +35,17 @@ namespace SoruKopyalama.Services
             var acilimdan = KisaKodParser.AcilimdanCoz(s.KodAcilimi);
             s.Anahtar = koddan ?? acilimdan;
             string anahtarKaynagi = koddan != null ? "koddan" : "kod açılımından";
-            bool celiski = koddan != null && acilimdan != null && koddan != acilimdan;
+            // Açılımdaki branş adı (TÜRKÇE/SOSYAL) sorunun gideceği branşı gösterir, kaynak testi değil
+            // (ör. AYT Test 1'in sosyal kısmı "SOSYAL" yazar). Bu yüzden test numarası karşılaştırılmaz.
+            bool celiski = koddan != null && acilimdan != null && koddan with { Test = 0 } != acilimdan with { Test = 0 };
 
-            s.Brans = s.Anahtar != null
-                ? SoruIndeksi.TestBransi(s.Anahtar.Test)
-                : ShortCodeDecoder.GetBranş(s.KisaKod, s.BolumKodu);
+            // Hedef klasör: Master sütunu (TÜRK-İÇ, SOS-İÇ...) varsa ona göre, yoksa kodun test numarasına göre
+            if (!string.IsNullOrWhiteSpace(s.BolumKodu))
+                s.Brans = ShortCodeDecoder.ResolveBrans("", s.BolumKodu);
+            else if (s.Anahtar != null)
+                s.Brans = SoruIndeksi.TestBransi(s.Anahtar.Test);
+            else
+                s.Brans = ShortCodeDecoder.GetBranş(s.KisaKod, s.BolumKodu);
 
             // 1. Kalıcı düzeltme
             if (_db.Duzeltmeler.TryGet(panel, s.KisaKod, out var dSolId, out var dSrcId))

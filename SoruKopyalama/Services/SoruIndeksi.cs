@@ -148,6 +148,7 @@ namespace SoruKopyalama.Services
                 if (metin.Contains("kurs")) return ("Final", "Kurs");
                 return ("", "");
             }
+            if (metin.Contains("limit eğitim kurumları") || Regex.IsMatch(metin, @"\blek\b")) return ("Limit", "LEK");
             if (metin.Contains("aktör")) return ("Limit", "Aktör");
             if (metin.Contains("dublör")) return ("Limit", "Dublör");
             return ("", "");
