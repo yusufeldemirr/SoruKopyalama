@@ -1,0 +1,6 @@
+.vs/
+bin/
+obj/
+*.user
+# Şifre ve cookie içerir
+appsettings.json
