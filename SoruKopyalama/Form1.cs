@@ -528,16 +528,19 @@ namespace SoruKopyalama
         }
 
         /// <summary>
-        /// update_question için JSON. Zorluk kaynak sorudan (veritabanı Excel'i) alınır; yoksa eskisi gibi 4.
-        /// TODO: kazanım (subjects) formatı panelden doğrulanınca kaynak.KazanimId buraya eklenecek.
+        /// update_question için JSON. Panelin kendi isteği:
+        /// {"id":"894787","subjects":["21963"],"source":"199593","answer":"D","difficulty":"3","order_number":"10"}
+        /// Zorluk ve kazanım kaynak sorudan (veritabanı Excel'i) alınır; zorluk yoksa eskisi gibi 4.
         /// </summary>
         private static string GuncellemeVerisi(string yeniSoruId, string hedefKlasorId, string cevap, string hedefSoruNo, DbSoru kaynak)
         {
             string zorluk = Regex.IsMatch(kaynak.Zorluk, @"^[1-5]$") ? kaynak.Zorluk : "4";
+            string kazanimMetni = Regex.Replace(kaynak.KazanimId ?? "", @"[.,]0+\b", ""); // Excel "9842.0" verebilir
+            string[] kazanimlar = Regex.Matches(kazanimMetni, @"\d+").Select(m => m.Value).Distinct().ToArray();
             var veri = new Dictionary<string, object>
             {
                 ["id"] = yeniSoruId,
-                ["subjects"] = Array.Empty<string>(),
+                ["subjects"] = kazanimlar,
                 ["source"] = hedefKlasorId,
                 ["answer"] = cevap,
                 ["difficulty"] = zorluk,
