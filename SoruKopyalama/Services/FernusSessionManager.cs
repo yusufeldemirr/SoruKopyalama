@@ -12,7 +12,7 @@ namespace SoruKopyalama.Services
 {
     public class FernusSessionManager
     {
-        private static readonly string SettingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
+        private static readonly string SettingsPath = VeriYolu.Dosya("appsettings.json");
         public AppSettings Settings { get; private set; } = new AppSettings();
 
         public FernusSessionManager()

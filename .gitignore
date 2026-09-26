@@ -4,3 +4,6 @@ obj/
 *.user
 # Şifre ve cookie içerir
 appsettings.json
+# Excel geçici kilit dosyaları
+~$*
+Yedek*/

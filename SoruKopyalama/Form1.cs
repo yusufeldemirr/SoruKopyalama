@@ -51,6 +51,7 @@ namespace SoruKopyalama
 
             InitPanelsUI();
             LogYaz("📚 Limit Soru Kopyalama Sistemi başlatılıyor...", Color.FromArgb(220, 53, 69));
+            LogYaz($"📂 Veri klasörü: {VeriYolu.Kok}", Color.FromArgb(108, 117, 125));
 
             var progress = new Progress<string>(msg => LogYaz(msg, Color.FromArgb(108, 117, 125)));
             var (fileCount, questionCount, msg) = await _dbManager.LoadExcelDatabaseAsync(progress);

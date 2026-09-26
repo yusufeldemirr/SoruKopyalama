@@ -44,7 +44,7 @@ namespace SoruKopyalama.Services
         {
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
-            _databaseDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Veritabani");
+            _databaseDirectory = VeriYolu.Veritabani;
 
             // Temel panel alt klasörlerini otomatik oluştur
             EnsureDirectory(_databaseDirectory);
@@ -109,7 +109,7 @@ namespace SoruKopyalama.Services
                 KodHafizasi.Clear();
                 foreach (var kv in PanelKodHafizalari) kv.Value.Clear();
 
-                string genMemPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "kod_hafizasi.txt");
+                string genMemPath = VeriYolu.Dosya("kod_hafizasi.txt");
                 if (File.Exists(genMemPath))
                 {
                     foreach (var satir in File.ReadAllLines(genMemPath))
@@ -139,7 +139,7 @@ namespace SoruKopyalama.Services
 
                 foreach (var panelName in new[] { "Limit", "Final", "Esen" })
                 {
-                    string pMemPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"kod_hafizasi_{panelName.ToLower()}.txt");
+                    string pMemPath = VeriYolu.Dosya($"kod_hafizasi_{panelName.ToLower()}.txt");
                     if (File.Exists(pMemPath))
                     {
                         InitPanelStorage(panelName);
@@ -171,10 +171,10 @@ namespace SoruKopyalama.Services
                 PanelKodHafizalari[panelName][kisaKod] = $"{sourceId}|{solutionId}";
                 KodHafizasi[kisaKod] = $"{sourceId}|{solutionId}";
 
-                string pMemPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"kod_hafizasi_{panelName.ToLower()}.txt");
+                string pMemPath = VeriYolu.Dosya($"kod_hafizasi_{panelName.ToLower()}.txt");
                 File.AppendAllText(pMemPath, $"{kisaKod}|{sourceId}|{solutionId}\n");
 
-                string genMemPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "kod_hafizasi.txt");
+                string genMemPath = VeriYolu.Dosya("kod_hafizasi.txt");
                 File.AppendAllText(genMemPath, $"{kisaKod}|{panelName}|{sourceId}|{solutionId}\n");
             }
             catch { }

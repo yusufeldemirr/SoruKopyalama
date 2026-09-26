@@ -12,7 +12,7 @@ namespace SoruKopyalama.Services
     /// </summary>
     public class OnekHafizasi
     {
-        private readonly string _dosyaYolu = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "kod_onekleri.txt");
+        private readonly string _dosyaYolu = VeriYolu.Dosya("kod_onekleri.txt");
         private readonly Dictionary<string, HashSet<string>> _kayitlar = new(StringComparer.OrdinalIgnoreCase);
 
         public int Sayi => _kayitlar.Count;

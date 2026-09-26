@@ -11,7 +11,7 @@ namespace SoruKopyalama.Services
     /// </summary>
     public class DuzeltmeDeposu
     {
-        private readonly string _dosyaYolu = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "duzeltmeler.txt");
+        private readonly string _dosyaYolu = VeriYolu.Dosya("duzeltmeler.txt");
         private readonly Dictionary<string, (string SolutionId, string SourceId)> _kayitlar = new(StringComparer.OrdinalIgnoreCase);
 
         public int Sayi => _kayitlar.Count;
