@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SoruKopyalama.Models
 {
@@ -34,6 +35,69 @@ namespace SoruKopyalama.Models
         public string SourceId { get; set; } = "";
         public string CevapAnahtari { get; set; } = "";
         public string PanelDomain { get; set; } = "final.frns.in";
+    }
+
+    /// <summary>
+    /// Bir sorunun yapısal kimliği. Hem kısa koddan hem de veritabanındaki klasör yolundan üretilir;
+    /// iki taraf aynı anahtarı üretiyorsa eşleşme kesindir.
+    /// </summary>
+    public record SoruAnahtari(string Yayin, string Seri, string Sinav, int Deneme, int Test, int SoruNo)
+    {
+        public override string ToString() => $"{Yayin} {Seri} {Sinav} D{Deneme} T{Test} S{SoruNo}";
+    }
+
+    /// <summary>Veritabanı Excel'lerindeki tek bir soru satırı.</summary>
+    public class DbSoru
+    {
+        public string Panel { get; set; } = "";
+        public string KaynakAdi { get; set; } = "";
+        public string SoruNoMetin { get; set; } = "";
+        public string SolutionId { get; set; } = "";
+        public string SourceId { get; set; } = "";
+        public string CevapAnahtari { get; set; } = "";
+        public SoruAnahtari? Anahtar { get; set; }
+
+        /// <summary>Kaynak yolunun son 3 klasörü (ekranda göstermek için).</summary>
+        public string KisaYol
+        {
+            get
+            {
+                var seg = KaynakAdi.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                return string.Join(" / ", seg.Skip(Math.Max(0, seg.Length - 3))) + " - " + SoruNoMetin.Trim();
+            }
+        }
+    }
+
+    public enum EslesmeDurumu
+    {
+        Kesin,          // Kısa kod veritabanında tek bir soruya birebir denk geldi
+        Duzeltme,       // Kullanıcının kalıcı düzeltme tablosundan geldi
+        ElleGirildi,    // Ön kontrol ekranında kullanıcı Soru ID yazdı
+        CevapFarkli,    // Bulundu ama iş emrindeki cevap veritabanındakinden farklı
+        Coklu,          // Aynı anahtara birden fazla soru denk geliyor
+        Tahmini,        // Kod ayrıştırılamadı, eski kelime puanlama motoru tahmin etti
+        Bulunamadi,
+        HedefNoBos      // İş emrinde hedef soru numarası yok
+    }
+
+    /// <summary>İş emrinin bir satırı ve bu satır için bulunan kaynak soru.</summary>
+    public class IsEmriSatiri
+    {
+        public int SiraNo { get; set; }
+        public string KisaKod { get; set; } = "";
+        public string KodAcilimi { get; set; } = "";
+        public string BolumKodu { get; set; } = "";
+        public string HedefSoruNo { get; set; } = "";
+        public string Cevap { get; set; } = "";
+
+        public string Brans { get; set; } = "";
+        public SoruAnahtari? Anahtar { get; set; }
+
+        public EslesmeDurumu Durum { get; set; } = EslesmeDurumu.Bulunamadi;
+        public string Aciklama { get; set; } = "";
+        public DbSoru? Kaynak { get; set; }
+        public List<DbSoru> Adaylar { get; set; } = new();
+        public bool Secili { get; set; }
     }
 
     public class SoruIslemRaporu

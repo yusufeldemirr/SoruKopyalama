@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -19,7 +20,7 @@ namespace SoruKopyalama
     {
         private readonly FernusSessionManager _sessionManager;
         private readonly DatabaseManager _dbManager;
-        private readonly QuestionMatcher _matcher;
+        private readonly Eslestirici _eslestirici;
 
         private CancellationTokenSource? _cts;
         private ManualResetEventSlim _pauseEvent = new ManualResetEventSlim(true);
@@ -36,7 +37,7 @@ namespace SoruKopyalama
 
             _sessionManager = new FernusSessionManager();
             _dbManager = new DatabaseManager();
-            _matcher = new QuestionMatcher();
+            _eslestirici = new Eslestirici(_dbManager);
         }
 
         private async void Form1_Load(object sender, EventArgs e)
@@ -63,7 +64,7 @@ namespace SoruKopyalama
                 LogYaz($"⚠️ BİLGİ: {msg}", Color.FromArgb(211, 84, 0));
             }
 
-            LogYaz($"🧠 Hafıza: {_dbManager.KodHafizasi.Count} adet geçmiş soru eşleşmesi hazır.", Color.FromArgb(220, 53, 69));
+            LogYaz($"🧠 Yapısal indeks: {_dbManager.Indeks.ToplamSoru} soru ({_dbManager.Indeks.AyristirilamayanSayisi} tanesinin klasör yolu ayrıştırılamadı), {_dbManager.Duzeltmeler.Sayi} kalıcı düzeltme hazır.", Color.FromArgb(220, 53, 69));
         }
 
         private void InitPanelsUI()
@@ -135,8 +136,8 @@ namespace SoruKopyalama
             try
             {
                 using OpenFileDialog ofd = new OpenFileDialog();
-                ofd.Title = "Adresleme (İş Emri) Excel'ini Seçin";
-                ofd.Filter = "Excel Dosyaları|*.xlsx;*.xls";
+                ofd.Title = "Adresleme (İş Emri) dosyasını seçin";
+                ofd.Filter = "İş Emri Dosyaları (Excel / CSV)|*.xlsx;*.xls;*.csv";
                 ofd.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
 
                 if (ofd.ShowDialog() == DialogResult.OK)
@@ -254,6 +255,35 @@ namespace SoruKopyalama
                 return;
             }
 
+            // Ön kontrol: her satırın hangi soruya eşleştiğini göster, kullanıcı onaylasın
+            List<IsEmriSatiri> satirlar;
+            try
+            {
+                satirlar = IsEmriOkuyucu.Oku(excelYolu);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("İş emri dosyası okunamadı (Excel'de açıksa kapatın):\n\n" + ex.Message, "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (satirlar.Count == 0)
+            {
+                MessageBox.Show("İş emri dosyasında işlenecek satır bulunamadı.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            _eslestirici.Coz(satirlar, hedefPanelAdi);
+
+            using (var onizleme = new OnizlemeForm(satirlar, hedefPanelAdi, _dbManager, _eslestirici))
+            {
+                if (onizleme.ShowDialog(this) != DialogResult.OK)
+                {
+                    LogYaz("ℹ️ Ön kontrol ekranında vazgeçildi, hiçbir şey kopyalanmadı.");
+                    return;
+                }
+            }
+
             // UI Durum Güncelleme
             SetRunningState(true);
             _cts = new CancellationTokenSource();
@@ -267,7 +297,7 @@ namespace SoruKopyalama
 
             try
             {
-                await Task.Run(() => KopyalamaMotorunuCalistirAsync(excelYolu, anaKlasorId, turkceId, sosyalId, matId, fenId, hedefPanelAdi, _cts.Token));
+                await Task.Run(() => KopyalamaMotorunuCalistirAsync(satirlar, anaKlasorId, turkceId, sosyalId, matId, fenId, hedefPanelAdi, _cts.Token));
             }
             catch (OperationCanceledException)
             {
@@ -285,68 +315,58 @@ namespace SoruKopyalama
         }
 
         private async Task KopyalamaMotorunuCalistirAsync(
-            string excelYolu, 
-            string anaKlasorId, 
-            string turkceId, 
-            string sosyalId, 
-            string matId, 
-            string fenId, 
-            string hedefPanelAdi, 
+            List<IsEmriSatiri> satirlar,
+            string anaKlasorId,
+            string turkceId,
+            string sosyalId,
+            string matId,
+            string fenId,
+            string hedefPanelAdi,
             CancellationToken ct)
         {
             var hedefPanel = _sessionManager.GetPanel(hedefPanelAdi);
             using var client = _sessionManager.CreateHttpClient(hedefPanelAdi);
 
-            using var package = new ExcelPackage(new FileInfo(excelYolu));
-            var worksheet = package.Workbook.Worksheets[0];
-            int totalRows = worksheet.Dimension?.Rows ?? 0;
+            var islenecekler = satirlar.Where(x => x.Secili && x.Kaynak != null).ToList();
 
-            // İşlenecek geçerli satırları tespit et
-            var islenecekSatirlar = new List<int>();
-            for (int r = 1; r <= totalRows; r++)
+            // Seçilmeyen satırlar da raporda görünsün
+            foreach (var atlanan in satirlar.Where(x => !x.Secili))
             {
-                string kKod = worksheet.Cells[r, 1].Text.Trim();
-                string kAcilim = worksheet.Cells[r, 2].Text.Trim();
-                string bolum = worksheet.Cells[r, 3].Text.Trim();
-                
-                if (kKod == "Kod" || kKod == "Kodu" || kKod == "KISA KOD" || kAcilim == "Kod Açılımı") continue;
-                
-                if (!string.IsNullOrEmpty(kKod) || !string.IsNullOrEmpty(kAcilim) || !string.IsNullOrEmpty(bolum))
+                _sonIslemRaporlari.Add(new SoruIslemRaporu
                 {
-                    islenecekSatirlar.Add(r);
-                }
+                    SiraNo = atlanan.SiraNo,
+                    KisaKod = atlanan.KisaKod,
+                    KodAcilimi = atlanan.KodAcilimi,
+                    HedefSoruNo = atlanan.HedefSoruNo,
+                    HedefCevap = atlanan.Cevap,
+                    BulunanSolutionId = atlanan.Kaynak?.SolutionId ?? "",
+                    BulunanSourceId = atlanan.Kaynak?.SourceId ?? "",
+                    Basarili = false,
+                    DurumMesaji = "ATLANDI (ön kontrolde seçilmedi): " + atlanan.Aciklama
+                });
             }
 
-            int toplamIslem = islenecekSatirlar.Count;
+            int toplamIslem = islenecekler.Count;
             int basariliSayisi = 0;
             int hataliSayisi = 0;
             int islemSirasi = 1;
 
             UpdateProgressUI(0, toplamIslem, 0, 0, toplamIslem, "Otomasyon başladı...");
 
-            LogYaz($"🚀 İŞ EMRİ BAŞLATILDI: Toplam {toplamIslem} soru işlenecek. (Panel: {hedefPanel.Domain})", Color.LimeGreen);
+            LogYaz($"🚀 İŞ EMRİ BAŞLATILDI: {toplamIslem} soru kopyalanacak, {satirlar.Count - toplamIslem} satır atlandı. (Panel: {hedefPanel.Domain})", Color.LimeGreen);
             LogYaz($"📌 Hedef Klasörler -> Türkçe: [{turkceId}] | Sosyal: [{sosyalId}] | Mat: [{matId}] | Fen: [{fenId}]", Color.DeepSkyBlue);
 
-            foreach (int row in islenecekSatirlar)
+            foreach (var satir in islenecekler)
             {
                 // Duraklatma kontrolü
                 _pauseEvent.Wait(ct);
                 ct.ThrowIfCancellationRequested();
 
-                string kisaKod = worksheet.Cells[row, 1].Text.Trim();
-                string kodAcilimi = worksheet.Cells[row, 2].Text.Trim();
-                string bolumKodu = worksheet.Cells[row, 3].Text.Trim(); // TÜRK-İÇ, SOS-İÇ, MAT-İÇ, FEN-İÇ
-                string hedefSoruNo = worksheet.Cells[row, 4].Text.Trim();
-                string cevapAnahtari = worksheet.Cells[row, 5].Text.Trim();
-
-                // Eğer kod açılımı tanımsız veya boşsa üret
-                if (string.IsNullOrWhiteSpace(kodAcilimi) || kodAcilimi.Contains("TANIMSIZ"))
-                {
-                    kodAcilimi = ShortCodeDecoder.Decode(kisaKod, bolumKodu);
-                }
-
-                // Branş Tespiti (Türkçe, Sosyal, Matematik, Fen)
-                string tespitEdilenBrans = ShortCodeDecoder.GetBranş(kisaKod, bolumKodu);
+                string kisaKod = satir.KisaKod;
+                string hedefSoruNo = satir.HedefSoruNo;
+                string cevapAnahtari = satir.Cevap;
+                string tespitEdilenBrans = satir.Brans;
+                var kaynak = satir.Kaynak!;
 
                 // Bu branşa ait hedef alt klasör ID'sini belirle
                 string hedefTargetId = anaKlasorId;
@@ -357,11 +377,13 @@ namespace SoruKopyalama
 
                 var rapor = new SoruIslemRaporu
                 {
-                    SiraNo = islemSirasi,
+                    SiraNo = satir.SiraNo,
                     KisaKod = kisaKod,
-                    KodAcilimi = kodAcilimi,
+                    KodAcilimi = satir.KodAcilimi,
                     HedefSoruNo = hedefSoruNo,
-                    HedefCevap = cevapAnahtari
+                    HedefCevap = cevapAnahtari,
+                    BulunanSolutionId = kaynak.SolutionId,
+                    BulunanSourceId = kaynak.SourceId
                 };
 
                 if (string.IsNullOrEmpty(hedefTargetId))
@@ -376,31 +398,11 @@ namespace SoruKopyalama
                     continue;
                 }
 
-                // Panel Bazlı Puanlama Motoru ile eşleştirme yap
-                var panelVeritabani = _dbManager.GetVeritabani(hedefPanelAdi);
-                var panelHafizasi = _dbManager.GetKodHafizasi(hedefPanelAdi);
-                var match = _matcher.Match(kisaKod, kodAcilimi, panelVeritabani, panelHafizasi, bolumKodu);
+                var match = new { SolutionId = kaynak.SolutionId, SourceId = kaynak.SourceId };
+                string eskiNo = Regex.Match(kaynak.SoruNoMetin, @"\d+").Value;
+                if (string.IsNullOrEmpty(eskiNo)) eskiNo = satir.Anahtar?.SoruNo.ToString() ?? "?";
 
-                if (!match.IsSuccess || string.IsNullOrEmpty(match.SolutionId))
-                {
-                    LogYaz($"{islemSirasi}-) ❌ BULUNAMADI [{tespitEdilenBrans}]: {match.Message}", Color.LightCoral);
-                    hataliSayisi++;
-                    rapor.Basarili = false;
-                    rapor.DurumMesaji = match.Message;
-                    _sonIslemRaporlari.Add(rapor);
-
-                    islemSirasi++;
-                    UpdateProgressUI(islemSirasi - 1, toplamIslem, basariliSayisi, hataliSayisi, toplamIslem - (islemSirasi - 1), $"İşleniyor: {islemSirasi - 1}/{toplamIslem}");
-                    continue;
-                }
-
-                rapor.BulunanSolutionId = match.SolutionId;
-                rapor.BulunanSourceId = match.SourceId;
-
-                string eskiNo = !string.IsNullOrEmpty(match.BulunanSoruNo) ? match.BulunanSoruNo.Replace("Soru", "").Replace(".", "").Trim() : match.SafSoruNo;
-                if (string.IsNullOrEmpty(eskiNo)) eskiNo = "?";
-
-                LogYaz($"{islemSirasi}-) 🎯 [{tespitEdilenBrans}] Eski Soru No: {eskiNo} -> Yeni Soru No: {hedefSoruNo} (Cevap: {cevapAnahtari})");
+                LogYaz($"{islemSirasi}-) 🎯 [{tespitEdilenBrans}] {kisaKod} | {kaynak.KisaYol} (ID {kaynak.SolutionId}) -> Yeni Soru No: {hedefSoruNo} (Cevap: {cevapAnahtari})");
 
                 // API İsteği: Kopyalama (action_solution_copy.php)
                 string copyPayload = $"{{\"source_id\":\"{match.SourceId}\",\"target_id\":\"{hedefTargetId}\",\"solutions\":[{{\"id\":\"{match.SolutionId}\"}}]}}";
@@ -482,9 +484,6 @@ namespace SoruKopyalama
                             basariliSayisi++;
                             rapor.Basarili = true;
                             rapor.DurumMesaji = "Başarıyla aktarıldı ve güncellendi.";
-
-                            // Başarılı eşleşmeyi panel bazlı hafızaya kaydet
-                            _dbManager.SaveToMemory(hedefPanelAdi, kisaKod, match.SourceId, match.SolutionId);
                         }
                         else
                         {
@@ -659,32 +658,23 @@ namespace SoruKopyalama
                 return;
             }
 
-            bool bulundu = false;
-
-            foreach (var item in _dbManager.SistemVeritabani.Values)
+            var soru = _dbManager.Indeks.TumPanellerdeIdIleBul(arananId);
+            if (soru == null)
             {
-                if (item.SolutionId == arananId || item.SourceId == arananId)
-                {
-                    LogYaz(" ");
-                    LogYaz($"--- 🔎 SORGULAMA SONUCU ({arananId}) ---", Color.Cyan);
-                    LogYaz($"Klasör/Adres : {item.KaynakAdi}");
-                    LogYaz($"Soru Numarası: {item.SoruNo}");
-                    LogYaz($"Cevap Anahtarı: {item.CevapAnahtari}");
-                    LogYaz($"Panel Domain : {item.PanelDomain}");
-                    LogYaz("---------------------------------------------", Color.Cyan);
-                    LogYaz(" ");
-
-                    bulundu = true;
-                    break;
-                }
+                LogYaz($"❌ {arananId} ID'li soru veritabanındaki {_dbManager.Indeks.ToplamSoru} soru içinde bulunamadı.", Color.LightCoral);
+                return;
             }
 
-            if (!found(arananId, ref bulundu))
-            {
-                LogYaz($"❌ {arananId} ID'li soru hafızadaki {_dbManager.SistemVeritabani.Count} soru içinde bulunamadı.", Color.LightCoral);
-            }
+            LogYaz(" ");
+            LogYaz($"--- 🔎 SORGULAMA SONUCU ({arananId}) ---", Color.Cyan);
+            LogYaz($"Panel          : {soru.Panel}");
+            LogYaz($"Klasör/Adres   : {soru.KaynakAdi}");
+            LogYaz($"Soru Numarası  : {soru.SoruNoMetin}");
+            LogYaz($"Cevap Anahtarı : {soru.CevapAnahtari}");
+            LogYaz($"Kaynak Klasör  : {soru.SourceId}");
+            LogYaz($"Yapısal Anahtar: {soru.Anahtar?.ToString() ?? "(ayrıştırılamadı)"}");
+            LogYaz("---------------------------------------------", Color.Cyan);
+            LogYaz(" ");
         }
-
-        private bool found(string id, ref bool b) => b;
     }
 }

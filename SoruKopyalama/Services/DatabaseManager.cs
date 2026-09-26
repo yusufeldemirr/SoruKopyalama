@@ -32,6 +32,11 @@ namespace SoruKopyalama.Services
         public Dictionary<string, string> KodHafizasi { get; private set; } 
             = new(StringComparer.OrdinalIgnoreCase);
 
+        // Yapısal indeks (kısa kod -> soru) ve kalıcı kullanıcı düzeltmeleri
+        public SoruIndeksi Indeks { get; } = new SoruIndeksi();
+        public DuzeltmeDeposu Duzeltmeler { get; } = new DuzeltmeDeposu();
+        private readonly List<DbSoru> _tumSorular = new List<DbSoru>();
+
         private readonly string _databaseDirectory;
 
         public DatabaseManager()
@@ -225,7 +230,9 @@ namespace SoruKopyalama.Services
 
                     SistemVeritabani.Clear();
                     foreach (var kv in PanelVeritabanlari) kv.Value.Clear();
+                    _tumSorular.Clear();
                     LoadMemory();
+                    Duzeltmeler.Yukle();
 
                     int islenenDosyaSayisi = 0;
 
@@ -290,6 +297,7 @@ namespace SoruKopyalama.Services
 
                                                     PanelVeritabanlari[detectedPanel][anahtar] = refObj;
                                                     SistemVeritabani[anahtar] = refObj;
+                                                    _tumSorular.Add(new DbSoru { Panel = detectedPanel, KaynakAdi = kaynakAdi, SoruNoMetin = soruNo, SolutionId = solutionId, SourceId = sourceId, CevapAnahtari = cevapAnahtari });
                                                 }
                                             }
                                             islenenDosyaSayisi++;
@@ -352,6 +360,7 @@ namespace SoruKopyalama.Services
 
                                         PanelVeritabanlari[detectedPanel][anahtar] = refObj;
                                         SistemVeritabani[anahtar] = refObj;
+                                        _tumSorular.Add(new DbSoru { Panel = detectedPanel, KaynakAdi = kaynakAdi, SoruNoMetin = soruNo, SolutionId = solutionId, SourceId = sourceId, CevapAnahtari = cevapAnahtari });
                                     }
                                 }
                                 islenenDosyaSayisi++;
@@ -359,6 +368,8 @@ namespace SoruKopyalama.Services
                         }
                         catch { }
                     }
+
+                    Indeks.Olustur(_tumSorular);
 
                     var panelOzetleri = PanelVeritabanlari
                         .Where(p => p.Value.Count > 0)
@@ -540,6 +551,10 @@ namespace SoruKopyalama.Services
                         }
                     }
                     catch { }
+
+                    foreach (var y in yeniEklenenler)
+                        _tumSorular.Add(new DbSoru { Panel = panelName, KaynakAdi = y.KaynakAdi, SoruNoMetin = y.SoruNo, SolutionId = y.SolutionId, SourceId = y.SourceId, CevapAnahtari = y.CevapAnahtari });
+                    Indeks.Olustur(_tumSorular);
 
                     return (true, eklenen, $"BAŞARILI: [{panelName}] panelinden {eklenen} soru hafızaya alındı ve '{panelName}' veritabanına kaydedildi!");
                 }
