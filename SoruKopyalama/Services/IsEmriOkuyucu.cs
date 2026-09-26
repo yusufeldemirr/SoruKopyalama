@@ -80,7 +80,14 @@ namespace SoruKopyalama.Services
 
         private static List<string[]> CsvOku(string yol)
         {
-            var bytes = File.ReadAllBytes(yol);
+            // Dosya Excel'de açıkken de okunabilsin
+            byte[] bytes;
+            using (var fs = new FileStream(yol, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                bytes = new byte[fs.Length];
+                int okunan = 0;
+                while (okunan < bytes.Length) okunan += fs.Read(bytes, okunan, bytes.Length - okunan);
+            }
             string metin;
             try
             {

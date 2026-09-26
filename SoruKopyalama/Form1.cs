@@ -661,7 +661,8 @@ namespace SoruKopyalama
 
             try
             {
-                string dosyaYolu = _dbManager.ExportReportToExcel(_sonIslemRaporlari);
+                string isEmriAdi = Path.GetFileNameWithoutExtension(txtAdreslemeExceli.Text.Trim());
+                string dosyaYolu = _dbManager.ExportReportToExcel(_sonIslemRaporlari, isEmriAdi);
                 MessageBox.Show($"İşlem raporu başarıyla masaüstüne kaydedildi!\n\nDosya: {dosyaYolu}", "Rapor Kaydedildi", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)

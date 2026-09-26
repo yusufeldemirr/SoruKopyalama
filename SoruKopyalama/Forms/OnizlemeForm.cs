@@ -51,15 +51,21 @@ namespace SoruKopyalama.Forms
 
         private void ArayuzuKur()
         {
-            var ust = new Label
+            var ust = new Panel { Dock = DockStyle.Top, Height = 78, Padding = new Padding(10, 6, 10, 0) };
+            var aciklama = new Label
             {
                 Dock = DockStyle.Top,
-                Height = 44,
-                Padding = new Padding(10, 6, 10, 0),
+                Height = 36,
                 Font = new Font("Segoe UI", 9.5F),
                 Text = "Yeşil satırlar kesin eşleşmedir ve seçili gelir. Sarı/kırmızı satırları kontrol edin.\n" +
                        "Yanlış veya bulunamayan bir soru için doğru Soru ID'yi 'Soru ID' hücresine yazın: program bunu kalıcı olarak hatırlar."
             };
+            var secimBar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 34, FlowDirection = FlowDirection.LeftToRight };
+            secimBar.Controls.Add(SecimButonu("✅ Sadece kesinleri seç", () => TopluSec(s => Eslestirici.VarsayilanSecili(s))));
+            secimBar.Controls.Add(SecimButonu("☑ Kaynağı olan tümünü seç", () => TopluSec(SecilebilirMi)));
+            secimBar.Controls.Add(SecimButonu("☐ Seçimi kaldır", () => TopluSec(_ => false)));
+            ust.Controls.Add(secimBar);
+            ust.Controls.Add(aciklama);
 
             var alt = new Panel { Dock = DockStyle.Bottom, Height = 60, Padding = new Padding(10) };
 
@@ -131,6 +137,31 @@ namespace SoruKopyalama.Forms
             Controls.Add(_grid);
             Controls.Add(alt);
             Controls.Add(ust);
+        }
+
+        private static Button SecimButonu(string metin, Action tikla)
+        {
+            var b = new Button { Text = metin, AutoSize = true, Height = 28, FlatStyle = FlatStyle.Flat, BackColor = Color.White, Margin = new Padding(0, 0, 8, 0) };
+            b.Click += (s, e) => tikla();
+            return b;
+        }
+
+        /// <summary>Kopyalanabilmesi için kaynak soru, kaynak klasör ID'si ve hedef soru no gerekir.</summary>
+        private static bool SecilebilirMi(IsEmriSatiri s) =>
+            s.Kaynak != null && !string.IsNullOrEmpty(s.Kaynak.SourceId) && !string.IsNullOrWhiteSpace(s.HedefSoruNo);
+
+        private void TopluSec(Func<IsEmriSatiri, bool> kural)
+        {
+            _grid.EndEdit();
+            _yukleniyor = true;
+            foreach (DataGridViewRow r in _grid.Rows)
+            {
+                if (r.Tag is not IsEmriSatiri s) continue;
+                s.Secili = kural(s) && SecilebilirMi(s);
+                r.Cells[ColSec].Value = s.Secili;
+            }
+            _yukleniyor = false;
+            OzetiGuncelle();
         }
 
         private void Kolon(string ad, string baslik, int genislik, bool duzenlenebilir = false)
@@ -214,7 +245,7 @@ namespace SoruKopyalama.Forms
             if (kolon == ColSec)
             {
                 bool secili = row.Cells[ColSec].Value is true;
-                if (secili && (s.Kaynak == null || string.IsNullOrEmpty(s.Kaynak.SourceId) || string.IsNullOrWhiteSpace(s.HedefSoruNo)))
+                if (secili && !SecilebilirMi(s))
                 {
                     MessageBox.Show("Bu satır seçilemez: kaynak soru, kaynak klasör ID'si veya hedef soru no eksik.\nÖnce 'Soru ID' veya 'Hedef No' hücresini doldurun.", "Eksik Bilgi", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     BeginInvoke(() => SatiriYaz(row, s));

@@ -14,7 +14,6 @@ namespace SoruKopyalama.Services
     public class Eslestirici
     {
         private readonly DatabaseManager _db;
-        private readonly QuestionMatcher _eskiMotor = new QuestionMatcher();
 
         public Eslestirici(DatabaseManager db)
         {
@@ -90,22 +89,11 @@ namespace SoruKopyalama.Services
                     s.Aciklama = $"[{panel}] veritabanında yok: {s.Anahtar}";
                 }
             }
-            // 3. Kod tanınmadı: eski motorun tahmini
+            // 3. Ne kısa kod ne de kod açılımı tanındı. Tahmin yürütülmez: yanlış soru kopyalamaktansa boş bırakmak iyidir.
             else
             {
-                var m = _eskiMotor.Match(s.KisaKod, s.KodAcilimi, _db.GetVeritabani(panel), new Dictionary<string, string>(), s.BolumKodu);
-                if (m.IsSuccess && !string.IsNullOrEmpty(m.SolutionId))
-                {
-                    s.Kaynak = _db.Indeks.IdIleBul(panel, m.SolutionId)
-                               ?? new DbSoru { Panel = panel, SolutionId = m.SolutionId, SourceId = m.SourceId, KaynakAdi = m.BulunanKaynakAdi, SoruNoMetin = m.BulunanSoruNo, CevapAnahtari = m.BulunanCevapAnahtari };
-                    s.Durum = EslesmeDurumu.Tahmini;
-                    s.Aciklama = "Kod tanınmadı, kelime benzerliğiyle TAHMİN edildi - kontrol edin";
-                }
-                else
-                {
-                    s.Durum = EslesmeDurumu.Bulunamadi;
-                    s.Aciklama = "Kod tanınmadı ve tahmin de bulunamadı";
-                }
+                s.Durum = EslesmeDurumu.Bulunamadi;
+                s.Aciklama = $"Kısa kod ({s.KisaKod}) ve kod açılımı tanınmadı - bu kod ailesi programa eklenmeli";
             }
 
             // Cevap anahtarı kontrolü: iş emrindeki cevap veritabanındakiyle tutmuyorsa şüpheli

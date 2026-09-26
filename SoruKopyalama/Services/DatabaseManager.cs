@@ -573,14 +573,17 @@ namespace SoruKopyalama.Services
             }
         }
 
-        public string ExportReportToExcel(List<SoruIslemRaporu> raporlar, string hedefKlasor = "")
+        /// <param name="isEmriAdi">Rapor adı bunun üzerine kurulur; boşsa genel bir ad kullanılır.</param>
+        public string ExportReportToExcel(List<SoruIslemRaporu> raporlar, string isEmriAdi = "", string hedefKlasor = "")
         {
             if (string.IsNullOrEmpty(hedefKlasor))
             {
                 hedefKlasor = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
             }
 
-            string dosyaAdi = $"Soru_Kopyalama_Raporu_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+            string temel = string.IsNullOrWhiteSpace(isEmriAdi) ? "Soru_Kopyalama" : isEmriAdi.Trim();
+            temel = string.Join("_", temel.Split(Path.GetInvalidFileNameChars()));
+            string dosyaAdi = $"{temel}_Rapor_{DateTime.Now:yyyyMMdd_HHmm}.xlsx";
             string tamYol = Path.Combine(hedefKlasor, dosyaAdi);
 
             using (var package = new ExcelPackage())
