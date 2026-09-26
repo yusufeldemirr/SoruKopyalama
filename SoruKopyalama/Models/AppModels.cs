@@ -41,15 +41,18 @@ namespace SoruKopyalama.Models
     /// Bir sorunun yapısal kimliği. Hem kısa koddan hem de veritabanındaki klasör yolundan üretilir;
     /// iki taraf aynı anahtarı üretiyorsa eşleşme kesindir.
     /// </summary>
-    public record SoruAnahtari(string Yayin, string Seri, string Sinav, int Deneme, int Test, int SoruNo)
+    public record SoruAnahtari(string Sinav, int Deneme, int Test, int SoruNo)
     {
-        public override string ToString() => $"{Yayin} {Seri} {Sinav} D{Deneme} T{Test} S{SoruNo}";
+        public override string ToString() => $"{(Sinav.All(char.IsDigit) ? Sinav + ".Sınıf" : Sinav)} Deneme {Deneme} Test {Test} Soru {SoruNo}";
     }
 
     /// <summary>Veritabanı Excel'lerindeki tek bir soru satırı.</summary>
     public class DbSoru
     {
         public string Panel { get; set; } = "";
+        public string DosyaAdi { get; set; } = "";
+        /// <summary>"2025-2026" gibi; klasör yolundan veya dosya adından. Bilinmiyorsa boş.</summary>
+        public string Sezon { get; set; } = "";
         public string KaynakAdi { get; set; } = "";
         public string SoruNoMetin { get; set; } = "";
         public string SolutionId { get; set; } = "";
@@ -59,6 +62,8 @@ namespace SoruKopyalama.Models
         public string KazanimId { get; set; } = "";
         public string Kazanim { get; set; } = "";
         public SoruAnahtari? Anahtar { get; set; }
+        /// <summary>Klasör yolundaki seriyi ayırt eden kelimeler: {final, finale, doğru, okul}, {limit, aktör}...</summary>
+        public HashSet<string> GrupKelimeleri { get; set; } = new();
 
         /// <summary>Kaynak yolunun son 3 klasörü (ekranda göstermek için).</summary>
         public string KisaYol
@@ -79,7 +84,7 @@ namespace SoruKopyalama.Models
         CevapFarkli,    // Bulundu ama iş emrindeki cevap veritabanındakinden farklı
         Coklu,          // Aynı anahtara birden fazla soru denk geliyor
         KodAcilimCelisiyor, // Kısa kod ile kod açılımı farklı soruları gösteriyor
-        Tahmini,        // Kod ayrıştırılamadı, eski kelime puanlama motoru tahmin etti
+        SeriBelirsiz,   // Deneme/test/soru tuttu ama açıklamadaki seri kelimeleri hiçbir klasörle tam örtüşmedi
         Bulunamadi,
         HedefNoBos      // İş emrinde hedef soru numarası yok
     }
@@ -95,7 +100,10 @@ namespace SoruKopyalama.Models
         public string Cevap { get; set; } = "";
 
         public string Brans { get; set; } = "";
+        public string Sezon { get; set; } = "";
         public SoruAnahtari? Anahtar { get; set; }
+        /// <summary>Açıklamadan (veya önek hafızasından) gelen seri kelimeleri.</summary>
+        public HashSet<string> GrupKelimeleri { get; set; } = new();
 
         public EslesmeDurumu Durum { get; set; } = EslesmeDurumu.Bulunamadi;
         public string Aciklama { get; set; } = "";

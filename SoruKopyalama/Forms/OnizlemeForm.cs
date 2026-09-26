@@ -209,7 +209,7 @@ namespace SoruKopyalama.Forms
             {
                 EslesmeDurumu.Kesin => Color.FromArgb(220, 245, 225),
                 EslesmeDurumu.Duzeltme or EslesmeDurumu.ElleGirildi => Color.FromArgb(210, 232, 250),
-                EslesmeDurumu.CevapFarkli or EslesmeDurumu.Coklu or EslesmeDurumu.KodAcilimCelisiyor or EslesmeDurumu.Tahmini or EslesmeDurumu.HedefNoBos => Color.FromArgb(255, 238, 200),
+                EslesmeDurumu.CevapFarkli or EslesmeDurumu.Coklu or EslesmeDurumu.KodAcilimCelisiyor or EslesmeDurumu.SeriBelirsiz or EslesmeDurumu.HedefNoBos => Color.FromArgb(255, 238, 200),
                 _ => Color.FromArgb(252, 215, 215)
             };
             foreach (DataGridViewCell c in r.Cells)
@@ -229,7 +229,7 @@ namespace SoruKopyalama.Forms
             EslesmeDurumu.CevapFarkli => "⚠️ Cevap farklı",
             EslesmeDurumu.Coklu => "⚠️ Birden fazla",
             EslesmeDurumu.KodAcilimCelisiyor => "⚠️ Kod/açılım farklı",
-            EslesmeDurumu.Tahmini => "⚠️ Tahmini",
+            EslesmeDurumu.SeriBelirsiz => "⚠️ Seri belirsiz",
             EslesmeDurumu.HedefNoBos => "⏭️ Hedef no boş",
             _ => "❌ Bulunamadı"
         };
@@ -322,7 +322,7 @@ namespace SoruKopyalama.Forms
         {
             int secili = _satirlar.Count(x => x.Secili);
             int kesin = _satirlar.Count(x => x.Durum is EslesmeDurumu.Kesin or EslesmeDurumu.Duzeltme or EslesmeDurumu.ElleGirildi);
-            int supheli = _satirlar.Count(x => x.Durum is EslesmeDurumu.CevapFarkli or EslesmeDurumu.Coklu or EslesmeDurumu.KodAcilimCelisiyor or EslesmeDurumu.Tahmini or EslesmeDurumu.HedefNoBos);
+            int supheli = _satirlar.Count(x => x.Durum is EslesmeDurumu.CevapFarkli or EslesmeDurumu.Coklu or EslesmeDurumu.KodAcilimCelisiyor or EslesmeDurumu.SeriBelirsiz or EslesmeDurumu.HedefNoBos);
             int yok = _satirlar.Count(x => x.Durum == EslesmeDurumu.Bulunamadi);
 
             _lblOzet.Text = $"Toplam {_satirlar.Count}  |  ✅ Kesin: {kesin}  |  ⚠️ Kontrol gereken: {supheli}  |  ❌ Bulunamayan: {yok}  |  Kopyalanacak: {secili}";

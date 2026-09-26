@@ -35,6 +35,7 @@ namespace SoruKopyalama.Services
         // Yapısal indeks (kısa kod -> soru) ve kalıcı kullanıcı düzeltmeleri
         public SoruIndeksi Indeks { get; } = new SoruIndeksi();
         public DuzeltmeDeposu Duzeltmeler { get; } = new DuzeltmeDeposu();
+        public OnekHafizasi Onekler { get; } = new OnekHafizasi();
         private readonly List<DbSoru> _tumSorular = new List<DbSoru>();
 
         private readonly string _databaseDirectory;
@@ -233,6 +234,7 @@ namespace SoruKopyalama.Services
                     _tumSorular.Clear();
                     LoadMemory();
                     Duzeltmeler.Yukle();
+                    Onekler.Yukle();
 
                     int islenenDosyaSayisi = 0;
 
@@ -300,7 +302,7 @@ namespace SoruKopyalama.Services
 
                                                     PanelVeritabanlari[detectedPanel][anahtar] = refObj;
                                                     SistemVeritabani[anahtar] = refObj;
-                                                    _tumSorular.Add(new DbSoru { Panel = detectedPanel, KaynakAdi = kaynakAdi, SoruNoMetin = soruNo, SolutionId = solutionId, SourceId = sourceId, CevapAnahtari = cevapAnahtari, Zorluk = zorluk, Kazanim = kazanim, KazanimId = kazanimId });
+                                                    _tumSorular.Add(new DbSoru { Panel = detectedPanel, DosyaAdi = Path.GetFileName(dosyaYolu), KaynakAdi = kaynakAdi, SoruNoMetin = soruNo, SolutionId = solutionId, SourceId = sourceId, CevapAnahtari = cevapAnahtari, Zorluk = zorluk, Kazanim = kazanim, KazanimId = kazanimId });
                                                 }
                                             }
                                             islenenDosyaSayisi++;
@@ -366,7 +368,7 @@ namespace SoruKopyalama.Services
 
                                         PanelVeritabanlari[detectedPanel][anahtar] = refObj;
                                         SistemVeritabani[anahtar] = refObj;
-                                        _tumSorular.Add(new DbSoru { Panel = detectedPanel, KaynakAdi = kaynakAdi, SoruNoMetin = soruNo, SolutionId = solutionId, SourceId = sourceId, CevapAnahtari = cevapAnahtari, Zorluk = zorluk, Kazanim = kazanim, KazanimId = kazanimId });
+                                        _tumSorular.Add(new DbSoru { Panel = detectedPanel, DosyaAdi = Path.GetFileName(dosyaYolu), KaynakAdi = kaynakAdi, SoruNoMetin = soruNo, SolutionId = solutionId, SourceId = sourceId, CevapAnahtari = cevapAnahtari, Zorluk = zorluk, Kazanim = kazanim, KazanimId = kazanimId });
                                     }
                                 }
                                 islenenDosyaSayisi++;
