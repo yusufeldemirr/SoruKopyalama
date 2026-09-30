@@ -260,7 +260,10 @@ namespace SoruKopyalama.Services
         }
 
         /// <summary>
-        /// Ana klasör ID'sinden (Deneme Ana Klasörü) alt klasörleri (Türkçe, Sosyal, Matematik, Fen) API ile çeker.
+        /// Deneme ana klasörünün altındaki branş klasörlerini bulur.
+        /// Lise: Ana / Türkçe, Sosyal, Matematik, Fen.
+        /// Ortaokul: Ana / Sözel Bölüm / (Türkçe, Sosyal Bilgiler, Din Kültürü, İngilizce) + Sayısal Bölüm / (Matematik, Fen).
+        /// Branş adı taşımayan ara klasörlerin (Sözel/Sayısal Bölüm, A/B Kitapçığı...) içine de bakılır.
         /// </summary>
         public async Task<(bool Success, string Message, Dictionary<string, string> SubFolders, List<(string Id, string Title)> AllFolders)> GetSubFoldersAsync(string panelNameOrDomain, string parentFolderId)
         {
@@ -275,16 +278,77 @@ namespace SoruKopyalama.Services
             var panel = GetPanel(panelNameOrDomain);
             using var client = CreateHttpClient(panelNameOrDomain);
 
-            // Görseldeki ve Fernus JSTree standartlarındaki birebir endpoint'ler
+            var cocuklar = await KlasorCocuklariniGetirAsync(client, panel, parentFolderId);
+
+            foreach (var c in cocuklar)
+            {
+                if (KlasorBransi(c.Title) != "")
+                {
+                    allList.Add(c);
+                    continue;
+                }
+
+                // Ara klasör: bir seviye daha in
+                var torunlar = await KlasorCocuklariniGetirAsync(client, panel, c.Id);
+                if (torunlar.Count > 0)
+                    allList.AddRange(torunlar.Where(t => !allList.Any(x => x.Id == t.Id)));
+                else
+                    allList.Add(c);
+            }
+
+            foreach (var item in allList)
+            {
+                string brans = KlasorBransi(item.Title);
+                if (brans != "" && !resultFolders.ContainsKey(brans))
+                    resultFolders[brans] = item.Id;
+            }
+
+            // İsimsiz (Test 1..4 gibi) tam 4 klasör: lise sırası
+            if (allList.Count == 4 && resultFolders.Count == 0)
+            {
+                resultFolders["Türkçe"] = allList[0].Id;
+                resultFolders["Sosyal"] = allList[1].Id;
+                resultFolders["Matematik"] = allList[2].Id;
+                resultFolders["Fen"] = allList[3].Id;
+            }
+
+            if (allList.Count > 0)
+            {
+                return (true, $"{allList.Count} adet alt klasör tespit edildi, {resultFolders.Count} branş eşleştirildi.", resultFolders, allList);
+            }
+
+            return (false, "Panelden alt klasör listesi alınamadı. Lütfen oturumunuzu kontrol edin veya ID'leri manuel girin.", resultFolders, allList);
+        }
+
+        /// <summary>Klasör adından branş: Türkçe, Sosyal, Din, İngilizce, Matematik, Fen. Tanınmazsa boş.</summary>
+        public static string KlasorBransi(string title)
+        {
+            string n = (title ?? "").ToUpper(new System.Globalization.CultureInfo("tr-TR"))
+                .Replace("İ", "I").Replace("Ğ", "G").Replace("Ü", "U").Replace("Ş", "S").Replace("Ö", "O").Replace("Ç", "C");
+
+            if (n.Contains("TURK") || n.Contains("EDEB")) return "Türkçe";
+            if (n.Contains("DIN")) return "Din";
+            if (n.Contains("INGILIZ") || n.Contains("ENGLISH")) return "İngilizce";
+            if (n.Contains("SOS") || n.Contains("TARIH") || n.Contains("COG") || n.Contains("FELSEFE")) return "Sosyal";
+            if (n.Contains("MAT") || n.Contains("GEO")) return "Matematik";
+            if (n.Contains("FEN") || n.Contains("FIZIK") || n.Contains("KIMYA") || n.Contains("BIYOLOJI")) return "Fen";
+
+            var t = System.Text.RegularExpressions.Regex.Match(n, @"\b(?:TEST|T)\s*-?\s*([1-4])\b");
+            if (t.Success) return t.Groups[1].Value switch { "1" => "Türkçe", "2" => "Sosyal", "3" => "Matematik", _ => "Fen" };
+            return "";
+        }
+
+        private async Task<List<(string Id, string Title)>> KlasorCocuklariniGetirAsync(HttpClient client, PanelConfig panel, string parentFolderId)
+        {
+            var allList = new List<(string Id, string Title)>();
+
+            // Fernus JSTree standartlarındaki endpoint'ler
             var getUrls = new[]
             {
-                // Görseldeki birebir istek formatı:
                 $"https://{panel.Domain}/jstree/process.php?tree_struct=source_tree_struct&tree_data=source_tree_data&operation=get_node&id={parentFolderId}",
                 $"https://{panel.Domain}/admin/jstree/process.php?tree_struct=source_tree_struct&tree_data=source_tree_data&operation=get_node&id={parentFolderId}",
                 $"https://{panel.Domain}/controller/process.php?tree_struct=source_tree_struct&tree_data=source_tree_data&operation=get_node&id={parentFolderId}",
                 $"https://{panel.Domain}/process.php?tree_struct=source_tree_struct&tree_data=source_tree_data&operation=get_node&id={parentFolderId}",
-                
-                // Diğer Fernus JSTree varyasyonları:
                 $"https://{panel.Domain}/jstree/process.php?tree_struct=sources&id={parentFolderId}",
                 $"https://{panel.Domain}/controller/process.php?tree_struct=sources&id={parentFolderId}",
                 $"https://{panel.Domain}/process.php?tree_struct=sources&id={parentFolderId}",
@@ -292,7 +356,6 @@ namespace SoruKopyalama.Services
                 $"https://{panel.Domain}/controller/action_sources.php?action=get_sources&parent={parentFolderId}"
             };
 
-            // 1. GET İsteklerini Dene (Görseldeki jstree isteği)
             foreach (var url in getUrls)
             {
                 try
@@ -309,7 +372,6 @@ namespace SoruKopyalama.Services
                 catch { }
             }
 
-            // 2. Eğer GET ile gelmediyse POST isteklerini dene
             if (allList.Count == 0)
             {
                 var postEndpoints = new[]
@@ -351,50 +413,9 @@ namespace SoruKopyalama.Services
                 }
             }
 
-            // Bulunan klasörleri 4 branşa (Türkçe, Sosyal, Matematik, Fen) akıllıca eşleştir
-            foreach (var item in allList)
-            {
-                string normTitle = item.Title.ToUpper()
-                                             .Replace("İ", "I")
-                                             .Replace("Ğ", "G")
-                                             .Replace("Ü", "U")
-                                             .Replace("Ş", "S")
-                                             .Replace("Ö", "O")
-                                             .Replace("Ç", "C");
-
-                if (!resultFolders.ContainsKey("Türkçe") && (normTitle.Contains("TURK") || normTitle.Contains("EDEB") || normTitle.Contains("TEST 1") || normTitle.Contains("TEST1") || normTitle.Contains("T1") || normTitle.Contains("BOLUM 1") || normTitle.Contains("1. TEST")))
-                {
-                    resultFolders["Türkçe"] = item.Id;
-                }
-                else if (!resultFolders.ContainsKey("Sosyal") && (normTitle.Contains("SOS") || normTitle.Contains("TAR") || normTitle.Contains("COG") || normTitle.Contains("FEL") || normTitle.Contains("DIN") || normTitle.Contains("TEST 2") || normTitle.Contains("TEST2") || normTitle.Contains("T2") || normTitle.Contains("BOLUM 2") || normTitle.Contains("2. TEST")))
-                {
-                    resultFolders["Sosyal"] = item.Id;
-                }
-                else if (!resultFolders.ContainsKey("Matematik") && (normTitle.Contains("MAT") || normTitle.Contains("TEMEL MATEMATIK") || normTitle.Contains("GEO") || normTitle.Contains("TEST 3") || normTitle.Contains("TEST3") || normTitle.Contains("T3") || normTitle.Contains("BOLUM 3") || normTitle.Contains("3. TEST")))
-                {
-                    resultFolders["Matematik"] = item.Id;
-                }
-                else if (!resultFolders.ContainsKey("Fen") && (normTitle.Contains("FEN") || normTitle.Contains("FEN BILIMLERI") || normTitle.Contains("FIZ") || normTitle.Contains("KIM") || normTitle.Contains("BIY") || normTitle.Contains("TEST 4") || normTitle.Contains("TEST4") || normTitle.Contains("T4") || normTitle.Contains("BOLUM 4") || normTitle.Contains("4. TEST")))
-                {
-                    resultFolders["Fen"] = item.Id;
-                }
-            }
-
-            // Eğer isimle eşleşmeyen varsa ve tam 4 klasör gelmişse sıralı ata (Test1..4)
-            if (allList.Count == 4)
-            {
-                if (!resultFolders.ContainsKey("Türkçe")) resultFolders["Türkçe"] = allList[0].Id;
-                if (!resultFolders.ContainsKey("Sosyal")) resultFolders["Sosyal"] = allList[1].Id;
-                if (!resultFolders.ContainsKey("Matematik")) resultFolders["Matematik"] = allList[2].Id;
-                if (!resultFolders.ContainsKey("Fen")) resultFolders["Fen"] = allList[3].Id;
-            }
-
-            if (allList.Count > 0)
-            {
-                return (true, $"{allList.Count} adet alt klasör başarıyla tespit edildi.", resultFolders, allList);
-            }
-
-            return (false, "Panelden alt klasör listesi alınamadı. Lütfen oturumunuzu kontrol edin veya ID'leri manuel girin.", resultFolders, allList);
+            // Sorgulanan klasörün kendisi de yanıtta dönebiliyor; onu çocuk sayma
+            allList.RemoveAll(x => x.Id == parentFolderId);
+            return allList;
         }
 
         private void ParseFoldersFromJson(string json, List<(string Id, string Title)> list)

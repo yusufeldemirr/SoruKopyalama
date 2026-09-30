@@ -21,7 +21,8 @@ namespace SoruKopyalama.Services
         {
             "yayınları", "yayınevi", "yayın", "yayınlari", "kurumsal", "deneme", "denemesi", "denemeleri",
             "sınavı", "sınavları", "sınav", "sinavi", "testi", "test", "tytayt", "tyt", "ayt", "sınıf", "sınıflar",
-            "sezonu", "sezon", "grubu", "grup", "ve", "ile", "serisi", "seri", "soru", "kds", "yks"
+            "sezonu", "sezon", "grubu", "grup", "ve", "ile", "serisi", "seri", "soru", "kds", "yks",
+            "bölüm", "sözel", "sayısal", "kitapçığı", "kitapçık"
         };
 
         // Panel -> Anahtar -> Adaylar
@@ -162,7 +163,7 @@ namespace SoruKopyalama.Services
             int deneme = DenemeNoBul(grup) ?? DenemeNoBul(kitapcik) ?? 0;
             if (deneme == 0) return null;
 
-            int testNo = TestNo(test);
+            int testNo = TestNo(test, sinav);
             if (testNo == 0) return null;
 
             var nMatch = Regex.Match(soruNoMetin ?? "", @"^\s*(\d+)");
@@ -175,13 +176,18 @@ namespace SoruKopyalama.Services
         public static string? SezonBul(string metin)
         {
             var m = Regex.Match(metin ?? "", @"(20\d{2})\s*[-–_ ]?\s*(20\d{2})");
-            return m.Success ? $"{m.Groups[1].Value}-{m.Groups[2].Value}" : null;
+            if (m.Success) return $"{m.Groups[1].Value}-{m.Groups[2].Value}";
+            // "25-26" kısa yazımı
+            var k = Regex.Match(metin ?? "", @"(?<!\d)(\d{2})\s*[-–]\s*(\d{2})(?!\d)");
+            if (k.Success && int.Parse(k.Groups[2].Value) == int.Parse(k.Groups[1].Value) + 1)
+                return $"20{k.Groups[1].Value}-20{k.Groups[2].Value}";
+            return null;
         }
 
         /// <summary>"9" / "10" / "11" / "12" (ara sınıf) veya "AYT" / "TYT".</summary>
         public static string SinavBul(string normMetin)
         {
-            var sinif = Regex.Match(normMetin, @"\b(9|10|11|12)\s*\.?\s*sınıf");
+            var sinif = Regex.Match(normMetin, @"\b(1[0-2]|[5-9])\s*\.?\s*sınıf");
             if (sinif.Success) return sinif.Groups[1].Value;
 
             string m = normMetin.Replace("tytayt", " ").Replace("tyt-ayt", " ");
@@ -194,8 +200,9 @@ namespace SoruKopyalama.Services
         public static int? DenemeNoBul(string normMetin)
         {
             // "9. sınıf" içindeki 9 deneme numarası değildir
-            string m = Regex.Replace(normMetin, @"\b(9|10|11|12)\s*\.?\s*sınıf", " ");
+            string m = Regex.Replace(normMetin, @"\b(1[0-2]|[5-9])\s*\.?\s*sınıf", " ");
             m = Regex.Replace(m, @"\b(20\d{2})\b", " ");
+            m = Regex.Replace(m, @"(?<!\d)\d{2}\s*[-–]\s*\d{2}(?!\d)", " "); // "25-26"
             var son = Regex.Match(m, @"(\d+)\s*$");
             if (son.Success) return int.Parse(son.Groups[1].Value);
             var ic = Regex.Match(m, @"(?:sınavı|deneme|kds)\s*(\d+)");
@@ -203,26 +210,49 @@ namespace SoruKopyalama.Services
             return null;
         }
 
-        /// <summary>TYT: 1 Türkçe, 2 Sosyal, 3 Temel Mat, 4 Fen. AYT: 1 Edebiyat-Sosyal1, 2 Sosyal2, 3 Mat, 4 Fen.</summary>
-        public static int TestNo(string test)
+        /// <summary>5-8. sınıf denemeleri: Sözel (Türkçe, Sosyal, Din, İngilizce) + Sayısal (Matematik, Fen) = 6 test.</summary>
+        public static bool Ortaokul(string sinav) => sinav is "5" or "6" or "7" or "8";
+
+        /// <summary>
+        /// Lise - TYT: 1 Türkçe, 2 Sosyal, 3 Temel Mat, 4 Fen. AYT: 1 Edebiyat-Sosyal1, 2 Sosyal2, 3 Mat, 4 Fen.
+        /// Ortaokul: 1 Türkçe, 2 Sosyal Bilgiler, 3 Din Kültürü, 4 İngilizce, 5 Matematik, 6 Fen Bilimleri.
+        /// </summary>
+        public static int TestNo(string test, string sinav = "")
         {
+            test = Normalize(test);
+            bool orta = Ortaokul(sinav);
             // "Türk Dili ve Edebiyatı Sosyal Bilimler1" hem edebiyat hem sosyal içerir, önce edebiyata bak
             if (test.Contains("edebiyat") || test.Contains("türkçe") || test.Contains("turkce")) return 1;
+            if (orta && test.Contains("din")) return 3;
+            if (orta && (test.Contains("ingilizce") || test.Contains("i̇ngilizce") || test.Contains("english"))) return 4;
             if (test.Contains("sosyal")) return 2;
-            if (test.Contains("matematik")) return 3;
-            if (test.Contains("fen")) return 4;
-            var t = Regex.Match(test, @"\btest\s*([1-4])\b");
+            if (test.Contains("matematik")) return orta ? 5 : 3;
+            if (test.Contains("fen")) return orta ? 6 : 4;
+            var t = Regex.Match(test, @"\btest\s*-?\s*([1-9])\b");
             if (t.Success) return int.Parse(t.Groups[1].Value);
             return 0;
         }
 
-        public static string TestBransi(int test) => test switch
+        public static string TestBransi(int test, string sinav = "")
         {
-            1 => "Türkçe",
-            2 => "Sosyal",
-            3 => "Matematik",
-            4 => "Fen",
-            _ => ""
-        };
+            if (Ortaokul(sinav))
+                return test switch { 1 => "Türkçe", 2 => "Sosyal", 3 => "Din", 4 => "İngilizce", 5 => "Matematik", 6 => "Fen", _ => "" };
+            return test switch { 1 => "Türkçe", 2 => "Sosyal", 3 => "Matematik", 4 => "Fen", _ => "" };
+        }
+
+        /// <summary>Master sütunundan branş: "TÜRK-İÇ" → Türkçe. "A-Master" gibi branş belirtmeyen değerlerde boş.</summary>
+        public static string MasterdanBrans(string master)
+        {
+            foreach (var tok in Regex.Split((master ?? "").ToUpper(Tr), @"[^\p{L}]+"))
+            {
+                if (tok.StartsWith("TÜRK") || tok.StartsWith("TURK") || tok.StartsWith("EDEB")) return "Türkçe";
+                if (tok.StartsWith("SOS") || tok.StartsWith("TAR") || tok.StartsWith("COĞ") || tok.StartsWith("FEL")) return "Sosyal";
+                if (tok.StartsWith("DİN") || tok.StartsWith("DIN")) return "Din";
+                if (tok.StartsWith("İNG") || tok.StartsWith("ING")) return "İngilizce";
+                if (tok.StartsWith("MAT") || tok.StartsWith("GEO")) return "Matematik";
+                if (tok.StartsWith("FEN") || tok.StartsWith("FİZ") || tok.StartsWith("KİM") || tok.StartsWith("BİY")) return "Fen";
+            }
+            return "";
+        }
     }
 }

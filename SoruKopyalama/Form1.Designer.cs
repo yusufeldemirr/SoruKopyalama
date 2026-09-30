@@ -25,6 +25,10 @@
             pnlMain = new TableLayoutPanel();
             grpIsEmri = new GroupBox();
             lblFen = new Label();
+            lblDin = new Label();
+            txtDinId = new TextBox();
+            lblIng = new Label();
+            txtIngilizceId = new TextBox();
             txtFenId = new TextBox();
             lblMat = new Label();
             txtMatematikId = new TextBox();
@@ -148,12 +152,16 @@
             pnlMain.Padding = new Padding(12, 10, 12, 5);
             pnlMain.RowCount = 1;
             pnlMain.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            pnlMain.Size = new Size(1220, 215);
+            pnlMain.Size = new Size(1220, 262);
             pnlMain.TabIndex = 1;
             // 
             // grpIsEmri
             // 
             grpIsEmri.BackColor = Color.White;
+            grpIsEmri.Controls.Add(lblDin);
+            grpIsEmri.Controls.Add(txtDinId);
+            grpIsEmri.Controls.Add(lblIng);
+            grpIsEmri.Controls.Add(txtIngilizceId);
             grpIsEmri.Controls.Add(lblFen);
             grpIsEmri.Controls.Add(txtFenId);
             grpIsEmri.Controls.Add(lblMat);
@@ -173,10 +181,54 @@
             grpIsEmri.ForeColor = Color.FromArgb(33, 37, 41);
             grpIsEmri.Location = new Point(15, 13);
             grpIsEmri.Name = "grpIsEmri";
-            grpIsEmri.Size = new Size(640, 194);
+            grpIsEmri.Size = new Size(640, 241);
             grpIsEmri.TabIndex = 0;
             grpIsEmri.TabStop = false;
             grpIsEmri.Text = " 📋 1. İş Emri ve Klasör Eşleştirme ";
+            // 
+            // lblDin
+            // 
+            lblDin.AutoSize = true;
+            lblDin.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+            lblDin.ForeColor = Color.FromArgb(111, 66, 193);
+            lblDin.Location = new Point(15, 185);
+            lblDin.Name = "lblDin";
+            lblDin.Size = new Size(140, 15);
+            lblDin.TabIndex = 15;
+            lblDin.Text = "🟣 Din Kültürü ID (ortaokul):";
+            // 
+            // txtDinId
+            // 
+            txtDinId.BackColor = Color.FromArgb(248, 249, 250);
+            txtDinId.BorderStyle = BorderStyle.FixedSingle;
+            txtDinId.ForeColor = Color.FromArgb(33, 37, 41);
+            txtDinId.Location = new Point(15, 203);
+            txtDinId.Name = "txtDinId";
+            txtDinId.PlaceholderText = "Din Kültürü Klasör ID";
+            txtDinId.Size = new Size(145, 24);
+            txtDinId.TabIndex = 14;
+            // 
+            // lblIng
+            // 
+            lblIng.AutoSize = true;
+            lblIng.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+            lblIng.ForeColor = Color.FromArgb(32, 201, 151);
+            lblIng.Location = new Point(170, 185);
+            lblIng.Name = "lblIng";
+            lblIng.Size = new Size(130, 15);
+            lblIng.TabIndex = 17;
+            lblIng.Text = "🟢 İngilizce ID (ortaokul):";
+            // 
+            // txtIngilizceId
+            // 
+            txtIngilizceId.BackColor = Color.FromArgb(248, 249, 250);
+            txtIngilizceId.BorderStyle = BorderStyle.FixedSingle;
+            txtIngilizceId.ForeColor = Color.FromArgb(33, 37, 41);
+            txtIngilizceId.Location = new Point(170, 203);
+            txtIngilizceId.Name = "txtIngilizceId";
+            txtIngilizceId.PlaceholderText = "İngilizce Klasör ID";
+            txtIngilizceId.Size = new Size(145, 24);
+            txtIngilizceId.TabIndex = 16;
             // 
             // lblFen
             // 
@@ -708,6 +760,10 @@
         private Label lblMat;
         private TextBox txtMatematikId;
         private Label lblFen;
+        private Label lblDin;
+        private TextBox txtDinId;
+        private Label lblIng;
+        private TextBox txtIngilizceId;
         private TextBox txtFenId;
         private GroupBox grpIstatistik;
         private Label label3;

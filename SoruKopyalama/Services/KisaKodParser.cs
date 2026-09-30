@@ -15,7 +15,7 @@ namespace SoruKopyalama.Services
     public static class KisaKodParser
     {
         private static readonly Regex Kalip = new(
-            @"^(?<sezon>\d{2})?(?<onek>[A-ZÇĞİÖŞÜ]+?)(?<sinif>9|10|11|12)?(?<sinav>AYT|TYT|A|T)?D(?<deneme>\d+)(?<sinav2>[AT])?T(?<test>[1-4])S(?<soru>\d+)$",
+            @"^(?<sezon>\d{2})?(?<onek>[A-ZÇĞİÖŞÜ]+?)(?<sinif>1[0-2]|[5-9])?(?<sinav>AYT|TYT|A|T)?D(?<deneme>\d+)(?<sinav2>[AT])?T(?<test>[1-9])S(?<soru>\d+)$",
             RegexOptions.CultureInvariant);
 
         public class KodBilgisi
@@ -110,7 +110,7 @@ namespace SoruKopyalama.Services
             };
 
             if (s.Success) bilgi.SoruNo = int.Parse(s.Groups[1].Value);
-            if (parcalar.Length >= 2) bilgi.Test = SoruIndeksi.TestNo(parcalar[^2]);
+            if (parcalar.Length >= 2) bilgi.Test = SoruIndeksi.TestNo(parcalar[^2], bilgi.Sinav);
 
             return bilgi;
         }

@@ -29,6 +29,9 @@ namespace SoruKopyalama
 
         private List<SoruIslemRaporu> _sonIslemRaporlari = new List<SoruIslemRaporu>();
 
+        // Branş adı -> hedef klasör ID kutusu. Lise: Türkçe/Sosyal/Matematik/Fen, ortaokul: +Din/İngilizce
+        private Dictionary<string, TextBox> _klasorKutulari = new();
+
         public Form1()
         {
             InitializeComponent();
@@ -38,6 +41,16 @@ namespace SoruKopyalama
             _sessionManager = new FernusSessionManager();
             _dbManager = new DatabaseManager();
             _eslestirici = new Eslestirici(_dbManager);
+
+            _klasorKutulari = new Dictionary<string, TextBox>
+            {
+                ["Türkçe"] = txtTurkceId,
+                ["Sosyal"] = txtSosyalId,
+                ["Din"] = txtDinId,
+                ["İngilizce"] = txtIngilizceId,
+                ["Matematik"] = txtMatematikId,
+                ["Fen"] = txtFenId
+            };
         }
 
         private async void Form1_Load(object sender, EventArgs e)
@@ -202,10 +215,8 @@ namespace SoruKopyalama
 
             if (result.Success && result.AllFolders.Count > 0)
             {
-                if (result.SubFolders.TryGetValue("Türkçe", out var tId)) txtTurkceId.Text = tId;
-                if (result.SubFolders.TryGetValue("Sosyal", out var sId)) txtSosyalId.Text = sId;
-                if (result.SubFolders.TryGetValue("Matematik", out var mId)) txtMatematikId.Text = mId;
-                if (result.SubFolders.TryGetValue("Fen", out var fId)) txtFenId.Text = fId;
+                foreach (var kv in _klasorKutulari)
+                    kv.Value.Text = result.SubFolders.TryGetValue(kv.Key, out var id) ? id : "";
 
                 LogYaz($"✅ {result.Message} (Panel: {hedefPanelAdi})", Color.LimeGreen);
                 foreach (var f in result.AllFolders)
@@ -226,10 +237,7 @@ namespace SoruKopyalama
 
             string excelYolu = txtAdreslemeExceli.Text.Trim();
             string anaKlasorId = txtAnaKlasorId.Text.Trim();
-            string turkceId = txtTurkceId.Text.Trim();
-            string sosyalId = txtSosyalId.Text.Trim();
-            string matId = txtMatematikId.Text.Trim();
-            string fenId = txtFenId.Text.Trim();
+            var hedefKlasorler = _klasorKutulari.ToDictionary(kv => kv.Key, kv => kv.Value.Text.Trim());
             string hedefPanelAdi = cmbHedefPanel.SelectedItem?.ToString() ?? "Limit";
 
             if (string.IsNullOrEmpty(excelYolu) || !File.Exists(excelYolu))
@@ -239,7 +247,7 @@ namespace SoruKopyalama
             }
 
             // En az bir klasör ID girilmiş olmalı
-            if (string.IsNullOrEmpty(anaKlasorId) && string.IsNullOrEmpty(turkceId) && string.IsNullOrEmpty(sosyalId) && string.IsNullOrEmpty(matId) && string.IsNullOrEmpty(fenId))
+            if (string.IsNullOrEmpty(anaKlasorId) && hedefKlasorler.Values.All(string.IsNullOrEmpty))
             {
                 MessageBox.Show("Lütfen Deneme Ana Klasör ID'sini veya alt klasör ID'lerini girin.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
@@ -298,7 +306,7 @@ namespace SoruKopyalama
 
             try
             {
-                await Task.Run(() => KopyalamaMotorunuCalistirAsync(satirlar, anaKlasorId, turkceId, sosyalId, matId, fenId, hedefPanelAdi, _cts.Token));
+                await Task.Run(() => KopyalamaMotorunuCalistirAsync(satirlar, anaKlasorId, hedefKlasorler, hedefPanelAdi, _cts.Token));
             }
             catch (OperationCanceledException)
             {
@@ -318,10 +326,7 @@ namespace SoruKopyalama
         private async Task KopyalamaMotorunuCalistirAsync(
             List<IsEmriSatiri> satirlar,
             string anaKlasorId,
-            string turkceId,
-            string sosyalId,
-            string matId,
-            string fenId,
+            Dictionary<string, string> hedefKlasorler,
             string hedefPanelAdi,
             CancellationToken ct)
         {
@@ -355,7 +360,8 @@ namespace SoruKopyalama
             UpdateProgressUI(0, toplamIslem, 0, 0, toplamIslem, "Otomasyon başladı...");
 
             LogYaz($"🚀 İŞ EMRİ BAŞLATILDI: {toplamIslem} soru kopyalanacak, {satirlar.Count - toplamIslem} satır atlandı. (Panel: {hedefPanel.Domain})", Color.LimeGreen);
-            LogYaz($"📌 Hedef Klasörler -> Türkçe: [{turkceId}] | Sosyal: [{sosyalId}] | Mat: [{matId}] | Fen: [{fenId}]", Color.DeepSkyBlue);
+            LogYaz("📌 Hedef Klasörler -> " + string.Join(" | ", hedefKlasorler.Where(kv => kv.Value != "").Select(kv => $"{kv.Key}: [{kv.Value}]")), Color.DeepSkyBlue);
+            bool hicKutuYok = hedefKlasorler.Values.All(string.IsNullOrEmpty);
 
             foreach (var satir in islenecekler)
             {
@@ -370,11 +376,9 @@ namespace SoruKopyalama
                 var kaynak = satir.Kaynak!;
 
                 // Bu branşa ait hedef alt klasör ID'sini belirle
-                string hedefTargetId = anaKlasorId;
-                if (tespitEdilenBrans == "Türkçe" && !string.IsNullOrEmpty(turkceId)) hedefTargetId = turkceId;
-                else if (tespitEdilenBrans == "Sosyal" && !string.IsNullOrEmpty(sosyalId)) hedefTargetId = sosyalId;
-                else if (tespitEdilenBrans == "Matematik" && !string.IsNullOrEmpty(matId)) hedefTargetId = matId;
-                else if (tespitEdilenBrans == "Fen" && !string.IsNullOrEmpty(fenId)) hedefTargetId = fenId;
+                // Branş kutusu doluysa oraya; hiçbir kutu doldurulmamışsa ana klasöre; kutu boşsa hata
+                string hedefTargetId = hedefKlasorler.TryGetValue(tespitEdilenBrans, out var kutu) ? kutu : "";
+                if (hedefTargetId == "" && hicKutuYok) hedefTargetId = anaKlasorId;
 
                 var rapor = new SoruIslemRaporu
                 {
@@ -612,6 +616,8 @@ namespace SoruKopyalama
             txtSosyalId.Enabled = !running;
             txtMatematikId.Enabled = !running;
             txtFenId.Enabled = !running;
+            txtDinId.Enabled = !running;
+            txtIngilizceId.Enabled = !running;
             btnAyarlar.Enabled = !running;
 
             btnDurdurDevam.Enabled = running;

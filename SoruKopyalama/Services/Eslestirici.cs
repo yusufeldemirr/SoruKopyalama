@@ -65,11 +65,13 @@ namespace SoruKopyalama.Services
                             (acilim.SoruNo != null && acilim.SoruNo != kod.SoruNo) ||
                             (acilim.Sinav != "" && kod.Sinav != "" && acilim.Sinav != kod.Sinav));
 
-            // Hedef klasör: Master sütunu (TÜRK-İÇ, SOS-İÇ...) varsa ona göre, yoksa kodun test numarasına göre
-            if (!string.IsNullOrWhiteSpace(s.BolumKodu))
-                s.Brans = ShortCodeDecoder.ResolveBrans("", s.BolumKodu);
+            // Hedef klasör: Master sütunu branş söylüyorsa (TÜRK-İÇ, SOS-İÇ...) ona göre; "A-Master" gibi
+            // sadece kitapçık belirten değerlerde veya boşsa kodun test numarasına göre
+            string masterBrans = SoruIndeksi.MasterdanBrans(s.BolumKodu);
+            if (masterBrans != "")
+                s.Brans = masterBrans;
             else if (s.Anahtar != null)
-                s.Brans = SoruIndeksi.TestBransi(s.Anahtar.Test);
+                s.Brans = SoruIndeksi.TestBransi(s.Anahtar.Test, s.Anahtar.Sinav);
             else
                 s.Brans = ShortCodeDecoder.GetBranş(s.KisaKod, s.BolumKodu);
 
