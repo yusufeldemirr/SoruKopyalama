@@ -51,7 +51,9 @@ namespace SoruKopyalama.Forms
                 await _webView.EnsureCoreWebView2Async(env);
 
                 _webView.CoreWebView2.NavigationCompleted += WebView_NavigationCompleted;
-                _webView.CoreWebView2.Navigate($"https://{_panel.Domain}/admin/login.php");
+                // Yönetim sayfasına git: oturum yoksa panel kendisi /login.php'ye yönlendirir,
+                // oturum zaten açıksa (kalıcı profil) doğrudan yönetim sayfası açılır ve çerez hemen alınır
+                _webView.CoreWebView2.Navigate($"https://{_panel.Domain}/admin/");
             }
             catch (Exception ex)
             {

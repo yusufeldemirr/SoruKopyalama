@@ -265,11 +265,12 @@ namespace SoruKopyalama.Services
                     string body = await resp.Content.ReadAsStringAsync();
                     string sonUrl = resp.RequestMessage?.RequestUri?.ToString().ToLowerInvariant() ?? "";
 
+                    // Panel oturumsuz istekleri /login.php'ye yönlendiriyor (302). Yönetim sayfası 200 dönüyorsa oturum açık.
+                    // Not: yönetim sayfasının kendisi de "password" alanı içeriyor, bu yüzden içerik kontrolü yapılmaz.
                     if (sonUrl.Contains("login")) return OturumDurumu.Gecersiz;
                     if (!resp.IsSuccessStatusCode) continue;
                     yanitAlindi = true;
-                    if (System.Text.RegularExpressions.Regex.IsMatch(body, @"type\s*=\s*[""']?password", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
-                        return OturumDurumu.Gecersiz;
+                    if (body.Length < 2000 && body.Contains("login", StringComparison.OrdinalIgnoreCase)) return OturumDurumu.Gecersiz;
                     return OturumDurumu.Gecerli;
                 }
                 catch { }
