@@ -123,7 +123,7 @@
             lblSubtitle.Name = "lblSubtitle";
             lblSubtitle.Size = new Size(570, 15);
             lblSubtitle.TabIndex = 1;
-            lblSubtitle.Text = "Tek Excel ile 4 Branş Otomatik Dağıtım (Türkçe • Sosyal • Matematik • Fen) | Akıllı Puanlama & Otomasyon";
+            lblSubtitle.Text = "Lise (TYT/AYT, 9-12) ve ortaokul (5-8) denemeleri | Veritabanıyla birebir eşleştirme, ön kontrol, otomatik oturum";
             // 
             // lblTitle
             // 
@@ -134,7 +134,7 @@
             lblTitle.Name = "lblTitle";
             lblTitle.Size = new Size(346, 28);
             lblTitle.TabIndex = 0;
-            lblTitle.Text = "Limit Soru Kopyalama Sistemi v2.5";
+            lblTitle.Text = "Soru Kopyalama Sistemi v3.0";
             // 
             // pnlMain
             // 

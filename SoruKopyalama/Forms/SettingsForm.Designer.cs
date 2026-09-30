@@ -32,24 +32,13 @@ namespace SoruKopyalama.Forms
             label2 = new Label();
             cmbPanelSec = new ComboBox();
             label1 = new Label();
-            tabSenkronize = new TabPage();
-            btnPaneldenCek = new Button();
-            txtSyncBaslik = new TextBox();
-            label8 = new Label();
-            txtSyncKlasorId = new TextBox();
-            label7 = new Label();
-            cmbSyncPanel = new ComboBox();
-            label6 = new Label();
-            lblSyncSonuc = new Label();
             tabControl1.SuspendLayout();
             tabPaneller.SuspendLayout();
-            tabSenkronize.SuspendLayout();
             SuspendLayout();
             // 
             // tabControl1
             // 
             tabControl1.Controls.Add(tabPaneller);
-            tabControl1.Controls.Add(tabSenkronize);
             tabControl1.Dock = DockStyle.Fill;
             tabControl1.Font = new Font("Segoe UI Semibold", 9.5F, FontStyle.Bold);
             tabControl1.Location = new Point(0, 0);
@@ -226,109 +215,6 @@ namespace SoruKopyalama.Forms
             label1.TabIndex = 0;
             label1.Text = "Yayın / Panel:";
             // 
-            // tabSenkronize
-            // 
-            tabSenkronize.BackColor = Color.White;
-            tabSenkronize.Controls.Add(lblSyncSonuc);
-            tabSenkronize.Controls.Add(btnPaneldenCek);
-            tabSenkronize.Controls.Add(txtSyncBaslik);
-            tabSenkronize.Controls.Add(label8);
-            tabSenkronize.Controls.Add(txtSyncKlasorId);
-            tabSenkronize.Controls.Add(label7);
-            tabSenkronize.Controls.Add(cmbSyncPanel);
-            tabSenkronize.Controls.Add(label6);
-            tabSenkronize.ForeColor = Color.FromArgb(33, 37, 41);
-            tabSenkronize.Location = new Point(4, 25);
-            tabSenkronize.Name = "tabSenkronize";
-            tabSenkronize.Padding = new Padding(15);
-            tabSenkronize.Size = new Size(576, 401);
-            tabSenkronize.TabIndex = 1;
-            tabSenkronize.Text = "  📥 Panelden Soru İçe Aktar (Excel'siz)  ";
-            // 
-            // btnPaneldenCek
-            // 
-            btnPaneldenCek.BackColor = Color.FromArgb(220, 53, 69);
-            btnPaneldenCek.Cursor = Cursors.Hand;
-            btnPaneldenCek.FlatAppearance.BorderSize = 0;
-            btnPaneldenCek.FlatStyle = FlatStyle.Flat;
-            btnPaneldenCek.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-            btnPaneldenCek.ForeColor = Color.White;
-            btnPaneldenCek.Location = new Point(150, 180);
-            btnPaneldenCek.Name = "btnPaneldenCek";
-            btnPaneldenCek.Size = new Size(395, 42);
-            btnPaneldenCek.TabIndex = 6;
-            btnPaneldenCek.Text = "🚀 Soruları Panelden Çek ve Hafızaya Ekle";
-            btnPaneldenCek.UseVisualStyleBackColor = false;
-            btnPaneldenCek.Click += btnPaneldenCek_Click;
-            // 
-            // txtSyncBaslik
-            // 
-            txtSyncBaslik.BackColor = Color.FromArgb(248, 249, 250);
-            txtSyncBaslik.BorderStyle = BorderStyle.FixedSingle;
-            txtSyncBaslik.ForeColor = Color.FromArgb(33, 37, 41);
-            txtSyncBaslik.Location = new Point(150, 118);
-            txtSyncBaslik.Name = "txtSyncBaslik";
-            txtSyncBaslik.Size = new Size(395, 24);
-            txtSyncBaslik.TabIndex = 5;
-            // 
-            // label8
-            // 
-            label8.AutoSize = true;
-            label8.Location = new Point(25, 121);
-            label8.Name = "label8";
-            label8.Size = new Size(116, 17);
-            label8.TabIndex = 4;
-            label8.Text = "Deneme/Kitap Adı:";
-            // 
-            // txtSyncKlasorId
-            // 
-            txtSyncKlasorId.BackColor = Color.FromArgb(248, 249, 250);
-            txtSyncKlasorId.BorderStyle = BorderStyle.FixedSingle;
-            txtSyncKlasorId.ForeColor = Color.FromArgb(33, 37, 41);
-            txtSyncKlasorId.Location = new Point(150, 72);
-            txtSyncKlasorId.Name = "txtSyncKlasorId";
-            txtSyncKlasorId.Size = new Size(395, 24);
-            txtSyncKlasorId.TabIndex = 3;
-            // 
-            // label7
-            // 
-            label7.AutoSize = true;
-            label7.Location = new Point(25, 75);
-            label7.Name = "label7";
-            label7.Size = new Size(108, 17);
-            label7.TabIndex = 2;
-            label7.Text = "Kaynak Klasör ID:";
-            // 
-            // cmbSyncPanel
-            // 
-            cmbSyncPanel.BackColor = Color.FromArgb(248, 249, 250);
-            cmbSyncPanel.DropDownStyle = ComboBoxStyle.DropDownList;
-            cmbSyncPanel.FlatStyle = FlatStyle.Flat;
-            cmbSyncPanel.ForeColor = Color.FromArgb(33, 37, 41);
-            cmbSyncPanel.FormattingEnabled = true;
-            cmbSyncPanel.Location = new Point(150, 26);
-            cmbSyncPanel.Name = "cmbSyncPanel";
-            cmbSyncPanel.Size = new Size(395, 25);
-            cmbSyncPanel.TabIndex = 1;
-            // 
-            // label6
-            // 
-            label6.AutoSize = true;
-            label6.Location = new Point(25, 29);
-            label6.Name = "label6";
-            label6.Size = new Size(89, 17);
-            label6.TabIndex = 0;
-            label6.Text = "Kaynak Panel:";
-            // 
-            // lblSyncSonuc
-            // 
-            lblSyncSonuc.Font = new Font("Segoe UI", 9.5F);
-            lblSyncSonuc.ForeColor = Color.FromArgb(108, 117, 125);
-            lblSyncSonuc.Location = new Point(25, 245);
-            lblSyncSonuc.Name = "lblSyncSonuc";
-            lblSyncSonuc.Size = new Size(520, 130);
-            lblSyncSonuc.TabIndex = 7;
-            // 
             // SettingsForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
@@ -345,8 +231,6 @@ namespace SoruKopyalama.Forms
             tabControl1.ResumeLayout(false);
             tabPaneller.ResumeLayout(false);
             tabPaneller.PerformLayout();
-            tabSenkronize.ResumeLayout(false);
-            tabSenkronize.PerformLayout();
             ResumeLayout(false);
         }
 
@@ -354,7 +238,6 @@ namespace SoruKopyalama.Forms
 
         private TabControl tabControl1;
         private TabPage tabPaneller;
-        private TabPage tabSenkronize;
         private ComboBox cmbPanelSec;
         private Label label1;
         private TextBox txtDomain;
@@ -368,13 +251,5 @@ namespace SoruKopyalama.Forms
         private Label lblStatus;
         private Button btnTestLogin;
         private Button btnKaydet;
-        private Label label6;
-        private ComboBox cmbSyncPanel;
-        private TextBox txtSyncKlasorId;
-        private Label label7;
-        private TextBox txtSyncBaslik;
-        private Label label8;
-        private Button btnPaneldenCek;
-        private Label lblSyncSonuc;
     }
 }

@@ -93,16 +93,8 @@ namespace SoruKopyalama
 
             if (cmbHedefPanel.Items.Count > 0)
             {
-                int limitIdx = cmbHedefPanel.FindStringExact("Limit");
-                if (limitIdx >= 0)
-                {
-                    cmbHedefPanel.SelectedIndex = limitIdx;
-                }
-                else
-                {
-                    int tgtIdx = cmbHedefPanel.FindStringExact(_sessionManager.Settings.DefaultTargetPanel);
-                    cmbHedefPanel.SelectedIndex = tgtIdx >= 0 ? tgtIdx : 0;
-                }
+                int tgtIdx = cmbHedefPanel.FindStringExact(_sessionManager.Settings.DefaultTargetPanel);
+                cmbHedefPanel.SelectedIndex = tgtIdx >= 0 ? tgtIdx : 0;
             }
 
             cmbHedefPanel.SelectedIndexChanged += cmbHedefPanel_SelectedIndexChanged;
@@ -110,7 +102,9 @@ namespace SoruKopyalama
 
         private void cmbHedefPanel_SelectedIndexChanged(object? sender, EventArgs e)
         {
-            string secili = cmbHedefPanel.SelectedItem?.ToString() ?? "Limit";
+            string secili = cmbHedefPanel.SelectedItem?.ToString() ?? "Final";
+            _sessionManager.Settings.DefaultTargetPanel = secili;
+            _sessionManager.SaveSettings();
             var panelDb = _dbManager.GetVeritabani(secili);
             var panelMem = _dbManager.GetKodHafizasi(secili);
             LogYaz($"📌 Aktif Veritabanı: [{secili}] ({panelDb.Count} soru havuzu, {panelMem.Count} hafıza kaydı devrede)", Color.FromArgb(41, 128, 185));
@@ -168,9 +162,8 @@ namespace SoruKopyalama
 
         private void btnAyarlar_Click(object sender, EventArgs e)
         {
-            using var settingsForm = new SettingsForm(_sessionManager, _dbManager);
+            using var settingsForm = new SettingsForm(_sessionManager, cmbHedefPanel.SelectedItem?.ToString());
             settingsForm.ShowDialog(this);
-            InitPanelsUI();
         }
 
         private async void btnAltKlasorleriGetir_Click(object sender, EventArgs e)
@@ -185,31 +178,17 @@ namespace SoruKopyalama
             }
 
             btnAltKlasorleriGetir.Enabled = false;
-            
+
+            if (!await OturumuSaglaAsync(hedefPanelAdi))
+            {
+                btnAltKlasorleriGetir.Enabled = true;
+                return;
+            }
+
             var panel = _sessionManager.GetPanel(hedefPanelAdi);
-            LogYaz($"🔍 [{panel.Name}] ({panel.Domain}) panelinden [{anaKlasorId}] alt klasörleri sorgulanıyor...", Color.Yellow);
+            LogYaz($"🔍 [{panel.Name}] ({panel.Domain}) panelinden [{anaKlasorId}] alt klasörleri sorgulanıyor...", Color.FromArgb(41, 128, 185));
 
             var result = await _sessionManager.GetSubFoldersAsync(hedefPanelAdi, anaKlasorId);
-
-            // Eğer seçili panelde bulunamadıysa diğer kayıtlı panellerde de ara (Limit, Final vs.)
-            if (!result.Success || result.AllFolders.Count == 0)
-            {
-                foreach (var otherPanel in _sessionManager.Settings.Panels)
-                {
-                    if (otherPanel.Name.Equals(hedefPanelAdi, StringComparison.OrdinalIgnoreCase)) continue;
-
-                    LogYaz($"🔍 [{otherPanel.Name}] ({otherPanel.Domain}) panelinde de deneniyor...", Color.Yellow);
-                    var otherResult = await _sessionManager.GetSubFoldersAsync(otherPanel.Name, anaKlasorId);
-                    if (otherResult.Success && otherResult.AllFolders.Count > 0)
-                    {
-                        result = otherResult;
-                        hedefPanelAdi = otherPanel.Name;
-                        int idx = cmbHedefPanel.FindStringExact(hedefPanelAdi);
-                        if (idx >= 0) cmbHedefPanel.SelectedIndex = idx;
-                        break;
-                    }
-                }
-            }
 
             btnAltKlasorleriGetir.Enabled = true;
 
@@ -226,8 +205,7 @@ namespace SoruKopyalama
             }
             else
             {
-                LogYaz($"⚠️ Panelden alt klasörler alınamadı. Lütfen oturum Cookie'nizi kontrol edin.", Color.Orange);
-                MessageBox.Show("Panelden alt klasör listesi alınamadı.\n\nİpucu: 'Panel & Oturum Ayarları'ndan 'Otomatik Giriş Yap ve Çek' butonuna basabilir veya tarayıcınızdaki Cookie'yi yapıştırıp kaydedebilirsiniz.", "Bilgi", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                LogYaz($"⚠️ [{hedefPanelAdi}] panelinde [{anaKlasorId}] klasörünün altında klasör bulunamadı. ID'yi ve paneli kontrol edin.", Color.Orange);
             }
         }
 
@@ -250,17 +228,6 @@ namespace SoruKopyalama
             if (string.IsNullOrEmpty(anaKlasorId) && hedefKlasorler.Values.All(string.IsNullOrEmpty))
             {
                 MessageBox.Show("Lütfen Deneme Ana Klasör ID'sini veya alt klasör ID'lerini girin.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            var hedefPanel = _sessionManager.GetPanel(hedefPanelAdi);
-            if (string.IsNullOrEmpty(hedefPanel.ActiveCookie) && string.IsNullOrEmpty(hedefPanel.Email))
-            {
-                var dr = MessageBox.Show($"'{hedefPanelAdi}' paneli için henüz oturum açılmamış. Ayarlar ekranını açmak ister misiniz?", "Oturum Gerekli", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if (dr == DialogResult.Yes)
-                {
-                    btnAyarlar_Click(sender, e);
-                }
                 return;
             }
 
@@ -292,6 +259,9 @@ namespace SoruKopyalama
                     return;
                 }
             }
+
+            // Kopyalamadan hemen önce oturumu sına; düşmüşse otomatik giriş yap
+            if (!await OturumuSaglaAsync(hedefPanelAdi)) return;
 
             // UI Durum Güncelleme
             SetRunningState(true);
@@ -428,19 +398,17 @@ namespace SoruKopyalama
                     var response = await client.PostAsync(copyUrl, copyContent, ct);
                     string responseText = await response.Content.ReadAsStringAsync(ct);
 
-                    // Eğer yetki hatası veya user_id null hatası varsa otomatik re-login yap ve tekrar dene
-                    if (responseText.Contains("login") || responseText.Contains("user_id") || responseText.Contains("SQLSTATE") || response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                    // Oturum düşmüşse (yanıt giriş sayfasına/yetki hatasına benziyor) otomatik giriş yapıp tekrar dene
+                    if (OturumDusmusGibi(response, responseText))
                     {
-                        LogYaz($"   ⚠️ Oturum yenileniyor (Panel girişi yapılıyor)...", Color.Orange);
-                        var loginRes = await _sessionManager.LoginAsync(hedefPanelAdi);
-                        if (loginRes.Success)
-                        {
-                            client.DefaultRequestHeaders.Remove("Cookie");
-                            client.DefaultRequestHeaders.Add("Cookie", loginRes.Cookie);
-                            // Tekrar dene
-                            response = await client.PostAsync(copyUrl, new FormUrlEncodedContent(copyData), ct);
-                            responseText = await response.Content.ReadAsStringAsync(ct);
-                        }
+                        LogYaz("   ⚠️ Oturum düşmüş görünüyor, panele yeniden giriş yapılıyor...", Color.Orange);
+                        bool tamam = await (Task<bool>)this.Invoke(new Func<Task<bool>>(() => OturumuSaglaAsync(hedefPanelAdi)));
+                        if (!tamam) throw new OperationCanceledException();
+
+                        client.DefaultRequestHeaders.Remove("Cookie");
+                        client.DefaultRequestHeaders.Add("Cookie", _sessionManager.GetPanel(hedefPanelAdi).ActiveCookie);
+                        response = await client.PostAsync(copyUrl, new FormUrlEncodedContent(copyData), ct);
+                        responseText = await response.Content.ReadAsStringAsync(ct);
                     }
 
                     if (response.IsSuccessStatusCode)
@@ -552,6 +520,48 @@ namespace SoruKopyalama
                 ["order_number"] = hedefSoruNo
             };
             return JsonSerializer.Serialize(veri);
+        }
+
+        private static bool OturumDusmusGibi(HttpResponseMessage response, string responseText)
+        {
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized || response.StatusCode == System.Net.HttpStatusCode.Forbidden) return true;
+            string t = responseText ?? "";
+            return t.Contains("login", StringComparison.OrdinalIgnoreCase) && t.Contains("password", StringComparison.OrdinalIgnoreCase)
+                || t.Contains("user_id") || t.Contains("SQLSTATE");
+        }
+
+        /// <summary>
+        /// Panelde oturum açık mı diye bakar; değilse gömülü tarayıcıyla otomatik giriş yapar.
+        /// Kullanıcının çerez kopyalaması gerekmez.
+        /// </summary>
+        private async Task<bool> OturumuSaglaAsync(string panelAdi)
+        {
+            var durum = await _sessionManager.OturumGecerliMiAsync(panelAdi);
+            if (durum == OturumDurumu.Gecerli) return true;
+            if (durum == OturumDurumu.Bilinmiyor)
+            {
+                LogYaz($"ℹ️ [{panelAdi}] paneli oturum sınamasına yanıt vermedi, mevcut çerezle devam ediliyor.", Color.FromArgb(108, 117, 125));
+                return true;
+            }
+
+            LogYaz($"🔐 [{panelAdi}] oturumu açık değil, otomatik giriş yapılıyor...", Color.FromArgb(211, 84, 0));
+            var panel = _sessionManager.GetPanel(panelAdi);
+            if (string.IsNullOrEmpty(panel.Email) || string.IsNullOrEmpty(panel.Password))
+            {
+                MessageBox.Show($"'{panelAdi}' paneli için e-posta ve şifre kayıtlı değil. Ayarlar'dan bir kez girin; sonrasında giriş otomatik yapılır.", "Oturum Gerekli", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            using var browserForm = new BrowserLoginForm(_sessionManager, panelAdi);
+            browserForm.ShowDialog(this);
+            if (!browserForm.LoginSuccess)
+            {
+                LogYaz("❌ Panele giriş yapılamadı, işlem durduruldu.", Color.FromArgb(220, 53, 69));
+                return false;
+            }
+
+            LogYaz($"✅ [{panelAdi}] oturumu açıldı, çerez otomatik alındı.", Color.FromArgb(39, 174, 96));
+            return true;
         }
 
         private string ParseNewQuestionId(string responseText)

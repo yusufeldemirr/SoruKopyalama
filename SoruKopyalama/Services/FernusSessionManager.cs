@@ -10,6 +10,8 @@ using SoruKopyalama.Models;
 
 namespace SoruKopyalama.Services
 {
+    public enum OturumDurumu { Gecerli, Gecersiz, Bilinmiyor }
+
     public class FernusSessionManager
     {
         private static readonly string SettingsPath = VeriYolu.Dosya("appsettings.json");
@@ -230,6 +232,50 @@ namespace SoruKopyalama.Services
             {
                 return (false, $"Giriş Hatası: {ex.Message}", "");
             }
+        }
+
+        /// <summary>
+        /// Kayıtlı (veya verilen) çerezle panelde oturumun açık olup olmadığını sınar.
+        /// Yönetici sayfası giriş sayfasına yönlendiriyorsa veya şifre alanı içeriyorsa oturum düşmüştür.
+        /// Panel hiç yanıt vermezse Bilinmiyor döner; bu durumda işlem denenir.
+        /// </summary>
+        public async Task<OturumDurumu> OturumGecerliMiAsync(string panelNameOrDomain, string? cookie = null)
+        {
+            var panel = GetPanel(panelNameOrDomain);
+            cookie ??= panel.ActiveCookie;
+            if (string.IsNullOrWhiteSpace(cookie)) return OturumDurumu.Gecersiz;
+
+            var handler = new HttpClientHandler
+            {
+                ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true,
+                AllowAutoRedirect = true,
+                UseCookies = false
+            };
+            using var client = new HttpClient(handler);
+            client.Timeout = TimeSpan.FromSeconds(15);
+            client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            client.DefaultRequestHeaders.Add("Cookie", cookie);
+
+            bool yanitAlindi = false;
+            foreach (var yol in new[] { "/admin/", "/admin/index.php", "/admin/kaynak_duzenle.php" })
+            {
+                try
+                {
+                    var resp = await client.GetAsync($"https://{panel.Domain}{yol}");
+                    string body = await resp.Content.ReadAsStringAsync();
+                    string sonUrl = resp.RequestMessage?.RequestUri?.ToString().ToLowerInvariant() ?? "";
+
+                    if (sonUrl.Contains("login")) return OturumDurumu.Gecersiz;
+                    if (!resp.IsSuccessStatusCode) continue;
+                    yanitAlindi = true;
+                    if (System.Text.RegularExpressions.Regex.IsMatch(body, @"type\s*=\s*[""']?password", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                        return OturumDurumu.Gecersiz;
+                    return OturumDurumu.Gecerli;
+                }
+                catch { }
+            }
+
+            return yanitAlindi ? OturumDurumu.Gecerli : OturumDurumu.Bilinmiyor;
         }
 
         /// <summary>

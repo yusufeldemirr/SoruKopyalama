@@ -1,1 +1,2 @@
 FK|final kurs
+FOSOZSAY|final okul

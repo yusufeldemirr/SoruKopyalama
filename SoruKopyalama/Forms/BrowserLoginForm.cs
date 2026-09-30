@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -11,14 +11,21 @@ using SoruKopyalama.Services;
 
 namespace SoruKopyalama.Forms
 {
+    /// <summary>
+    /// Panele gömülü tarayıcıyla giriş yapar ve GERÇEK oturum çerezini alır.
+    /// Çerez, ancak giriş sayfasından çıkıldıktan ve oturum panelde doğrulandıktan sonra kabul edilir;
+    /// giriş yapılmamış boş PHPSESSID alınmaz.
+    /// </summary>
     public partial class BrowserLoginForm : Form
     {
         private readonly FernusSessionManager _sessionManager;
         private readonly PanelConfig _panel;
         private WebView2? _webView;
-        private bool _isCompleted = false;
+        private bool _isCompleted;
+        private bool _formGonderildi;
+        private bool _kontrolEdiliyor;
 
-        public bool LoginSuccess { get; private set; } = false;
+        public bool LoginSuccess { get; private set; }
         public string ExtractedCookie { get; private set; } = "";
 
         public BrowserLoginForm(FernusSessionManager sessionManager, string panelName)
@@ -31,24 +38,20 @@ namespace SoruKopyalama.Forms
 
         private async void BrowserLoginForm_Load(object sender, EventArgs e)
         {
-            lblDurum.Text = $"{_panel.Domain} açılıyor ve oturum başlatılıyor...";
-            lblDurum.ForeColor = Color.Yellow;
+            lblDurum.Text = $"{_panel.Domain} açılıyor...";
+            lblDurum.ForeColor = Color.FromArgb(73, 80, 87);
 
             try
             {
-                _webView = new WebView2
-                {
-                    Dock = DockStyle.Fill
-                };
+                _webView = new WebView2 { Dock = DockStyle.Fill };
                 pnlWeb.Controls.Add(_webView);
 
-                await _webView.EnsureCoreWebView2Async(null);
+                // Profil veri klasörü veri kökünde: oturum bir kez açılınca sonraki girişler anında olur
+                var env = await CoreWebView2Environment.CreateAsync(null, VeriYolu.Dosya("WebView2Profil"));
+                await _webView.EnsureCoreWebView2Async(env);
 
                 _webView.CoreWebView2.NavigationCompleted += WebView_NavigationCompleted;
-                _webView.CoreWebView2.SourceChanged += WebView_SourceChanged;
-
-                string targetUrl = $"https://{_panel.Domain}/admin/login.php";
-                _webView.CoreWebView2.Navigate(targetUrl);
+                _webView.CoreWebView2.Navigate($"https://{_panel.Domain}/admin/login.php");
             }
             catch (Exception ex)
             {
@@ -61,112 +64,114 @@ namespace SoruKopyalama.Forms
         {
             if (_isCompleted || _webView?.CoreWebView2 == null) return;
 
-            string currentUrl = _webView.Source.ToString().ToLower();
+            string currentUrl = _webView.Source.ToString().ToLowerInvariant();
 
-            // Eğer login sayfasındaysak ve panelde kayıtlı e-posta/şifre varsa otomatik doldur
             if (currentUrl.Contains("login"))
             {
-                lblDurum.Text = "Giriş formu algılandı, bilgiler otomatik yazılıyor...";
-                lblDurum.ForeColor = Color.DeepSkyBlue;
-
-                if (!string.IsNullOrEmpty(_panel.Email) && !string.IsNullOrEmpty(_panel.Password))
+                if (_formGonderildi)
                 {
-                    string script = $@"
-                        (function() {{
-                            var emailInput = document.querySelector('input[name=email]') || document.querySelector('input[type=email]') || document.querySelector('input[type=text]');
-                            var passInput = document.querySelector('input[name=password]') || document.querySelector('input[type=password]');
-                            var submitBtn = document.querySelector('button[type=submit]') || document.querySelector('input[type=submit]') || document.querySelector('.btn-login') || document.querySelector('form button');
-                            
-                            if (emailInput) {{
-                                emailInput.value = '{_panel.Email}';
-                                emailInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                            }}
-                            if (passInput) {{
-                                passInput.value = '{_panel.Password}';
-                                passInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                            }}
-                            if (submitBtn && emailInput && emailInput.value) {{
-                                setTimeout(function() {{ submitBtn.click(); }}, 500);
-                            }}
-                        }})();
-                    ";
-
-                    await _webView.ExecuteScriptAsync(script);
+                    lblDurum.Text = "Otomatik giriş kabul edilmedi. Lütfen aşağıdaki formdan kendiniz giriş yapın; çerez otomatik alınacak.";
+                    lblDurum.ForeColor = Color.FromArgb(211, 84, 0);
+                    return;
                 }
+
+                if (string.IsNullOrEmpty(_panel.Email) || string.IsNullOrEmpty(_panel.Password))
+                {
+                    lblDurum.Text = "Ayarlarda e-posta/şifre yok. Lütfen aşağıdaki formdan giriş yapın; çerez otomatik alınacak.";
+                    lblDurum.ForeColor = Color.FromArgb(211, 84, 0);
+                    return;
+                }
+
+                lblDurum.Text = "Giriş formu algılandı, bilgiler yazılıp gönderiliyor...";
+                lblDurum.ForeColor = Color.FromArgb(13, 110, 253);
+                _formGonderildi = true;
+
+                string script = $@"
+                    (function() {{
+                        var emailInput = document.querySelector('input[name=email]') || document.querySelector('input[type=email]') || document.querySelector('input[type=text]');
+                        var passInput = document.querySelector('input[name=password]') || document.querySelector('input[type=password]');
+                        var submitBtn = document.querySelector('button[type=submit]') || document.querySelector('input[type=submit]') || document.querySelector('.btn-login') || document.querySelector('form button');
+                        if (emailInput) {{ emailInput.value = {JsStr(_panel.Email)}; emailInput.dispatchEvent(new Event('input', {{ bubbles: true }})); }}
+                        if (passInput) {{ passInput.value = {JsStr(_panel.Password)}; passInput.dispatchEvent(new Event('input', {{ bubbles: true }})); }}
+                        if (emailInput && passInput) {{
+                            setTimeout(function() {{ if (submitBtn) submitBtn.click(); else if (passInput.form) passInput.form.submit(); }}, 400);
+                            return 'ok';
+                        }}
+                        return 'form-yok';
+                    }})();";
+
+                string sonuc = await _webView.ExecuteScriptAsync(script);
+                if (sonuc.Contains("form-yok"))
+                {
+                    lblDurum.Text = "Giriş formu bulunamadı. Lütfen aşağıdan kendiniz giriş yapın; çerez otomatik alınacak.";
+                    lblDurum.ForeColor = Color.FromArgb(211, 84, 0);
+                }
+                return;
             }
 
-            // Eğer admin paneline veya ana sayfaya yönlendiyse çerezleri yakala!
-            if (currentUrl.Contains("admin") || currentUrl.Contains("index") || currentUrl.Contains("kaynak") || currentUrl.Contains("dashboard") || !currentUrl.Contains("login"))
-            {
-                await CheckAndExtractCookiesAsync();
-            }
+            // Giriş sayfasından çıkıldı: çerezi al ve panelde doğrula
+            await CheckAndExtractCookiesAsync();
         }
 
-        private async void WebView_SourceChanged(object? sender, CoreWebView2SourceChangedEventArgs e)
-        {
-            if (_isCompleted || _webView?.CoreWebView2 == null) return;
-            string currentUrl = _webView.Source.ToString().ToLower();
-
-            if (!currentUrl.Contains("login"))
-            {
-                await CheckAndExtractCookiesAsync();
-            }
-        }
+        private static string JsStr(string s) => System.Text.Json.JsonSerializer.Serialize(s ?? "");
 
         private async Task CheckAndExtractCookiesAsync()
         {
-            if (_isCompleted || _webView?.CoreWebView2 == null) return;
+            if (_isCompleted || _kontrolEdiliyor || _webView?.CoreWebView2 == null) return;
+            _kontrolEdiliyor = true;
 
             try
             {
-                var cookieManager = _webView.CoreWebView2.CookieManager;
-                var cookies = await cookieManager.GetCookiesAsync($"https://{_panel.Domain}");
+                var cookies = await _webView.CoreWebView2.CookieManager.GetCookiesAsync($"https://{_panel.Domain}");
+                var pairs = cookies.Select(c => $"{c.Name}={c.Value}").ToList();
 
-                var cookiePairs = new List<string>();
-                bool hasPhpSessId = false;
-
-                foreach (var c in cookies)
+                if (!cookies.Any(c => c.Name.Equals("PHPSESSID", StringComparison.OrdinalIgnoreCase)))
                 {
-                    cookiePairs.Add($"{c.Name}={c.Value}");
-                    if (c.Name.Equals("PHPSESSID", StringComparison.OrdinalIgnoreCase))
-                    {
-                        hasPhpSessId = true;
-                    }
+                    lblDurum.Text = "Henüz oturum çerezi yok, bekleniyor...";
+                    return;
                 }
 
-                if (hasPhpSessId && cookiePairs.Count > 0)
+                if (!pairs.Any(p => p.StartsWith("email=", StringComparison.OrdinalIgnoreCase)) && !string.IsNullOrEmpty(_panel.Email))
+                    pairs.Add($"email={_panel.Email}");
+
+                string cookie = string.Join("; ", pairs);
+
+                lblDurum.Text = "Oturum panelde doğrulanıyor...";
+                var durum = await _sessionManager.OturumGecerliMiAsync(_panel.Name, cookie);
+
+                if (durum == OturumDurumu.Gecersiz)
                 {
-                    _isCompleted = true;
-                    LoginSuccess = true;
-
-                    ExtractedCookie = string.Join("; ", cookiePairs);
-                    _panel.ActiveCookie = ExtractedCookie;
-                    _panel.LastLoginTime = DateTime.Now;
-                    _sessionManager.SaveSettings();
-
-                    lblDurum.Text = "🎉 BAŞARILI: Oturum açıldı ve güncel Cookie yakalandı! Pencere kapatılıyor...";
-                    lblDurum.ForeColor = Color.LimeGreen;
-
-                    await Task.Delay(1200);
-                    this.DialogResult = DialogResult.OK;
-                    this.Close();
+                    lblDurum.Text = "Alınan çerez panelde geçerli değil (giriş tamamlanmamış). Lütfen aşağıdan giriş yapın.";
+                    lblDurum.ForeColor = Color.FromArgb(211, 84, 0);
+                    return;
                 }
+
+                _isCompleted = true;
+                LoginSuccess = true;
+                ExtractedCookie = cookie;
+                _sessionManager.UpdatePanelCookie(_panel.Name, cookie);
+
+                lblDurum.Text = "✅ Oturum açıldı ve çerez doğrulandı. Pencere kapatılıyor...";
+                lblDurum.ForeColor = Color.FromArgb(39, 174, 96);
+
+                await Task.Delay(600);
+                this.DialogResult = DialogResult.OK;
+                this.Close();
             }
             catch (Exception ex)
             {
                 lblDurum.Text = "Çerez okuma hatası: " + ex.Message;
+                lblDurum.ForeColor = Color.Red;
+            }
+            finally
+            {
+                _kontrolEdiliyor = false;
             }
         }
 
         private async void btnManuelYakalayici_Click(object sender, EventArgs e)
         {
-            lblDurum.Text = "Çerezler taranıyor...";
             await CheckAndExtractCookiesAsync();
-
-            if (!LoginSuccess)
-            {
-                MessageBox.Show("Henüz oturum çerezi algılanamadı. Lütfen tarayıcı ekranından giriş yapıp tekrar deneyin.", "Bilgi", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
         }
     }
 }
